@@ -94,150 +94,117 @@ def post_quiz(page, question):
     time.sleep(3)
 
     # Click the "Create post" / text box area
-    page.evaluate("""
-        const box = document.querySelector('[placeholder*="community"]') ||
-                    document.querySelector('[contenteditable="true"]');
+    page.evaluate("""(function() {
+        var box = document.querySelector('[placeholder*="community"]') ||
+                  document.querySelector('[contenteditable="true"]');
         if (box) box.click();
-    """)
+    })()""")
     time.sleep(1)
 
-    # Click "Poll / Quiz" button — look for the quiz icon in the post composer
-    page.evaluate("""
-        const btns = [...document.querySelectorAll('button, yt-icon-button, tp-yt-paper-button')];
-        const quizBtn = btns.find(b => {
-            const t = (b.textContent || b.getAttribute('aria-label') || '').toLowerCase();
+    # Click "Poll / Quiz" button
+    page.evaluate("""(function() {
+        var btns = Array.from(document.querySelectorAll('button, yt-icon-button, tp-yt-paper-button'));
+        var quizBtn = btns.find(function(b) {
+            var t = (b.textContent || b.getAttribute('aria-label') || '').toLowerCase();
             return t.includes('quiz') || t.includes('poll');
         });
         if (quizBtn) quizBtn.click();
-    """)
+    })()""")
     time.sleep(2)
 
     # Choose "Quiz" if a picker appeared
-    page.evaluate("""
-        const items = [...document.querySelectorAll('[role="menuitem"], [role="option"], button')];
-        const quizItem = items.find(i => (i.textContent || '').trim().toLowerCase() === 'quiz');
+    page.evaluate("""(function() {
+        var items = Array.from(document.querySelectorAll('[role="menuitem"], [role="option"], button'));
+        var quizItem = items.find(function(i) { return (i.textContent || '').trim().toLowerCase() === 'quiz'; });
         if (quizItem) quizItem.click();
-    """)
+    })()""")
     time.sleep(2)
 
     q_text   = question["question"]
     options  = question["options"]
     ans_idx  = question["answer_index"]
 
-    # Fill question
-    page.evaluate(f"""
-        function deepQuery(root, sel) {{
-            const res = [];
-            const walk = (node) => {{
-                try {{
-                    node.querySelectorAll(sel).forEach(el => {{
-                        const r = el.getBoundingClientRect();
+    def deep_query_js():
+        return """
+        function deepQuery(root, sel) {
+            var res = [];
+            function walk(node) {
+                try {
+                    node.querySelectorAll(sel).forEach(function(el) {
+                        var r = el.getBoundingClientRect();
                         if (r.width > 0 && r.height > 0) res.push(el);
-                    }});
-                    node.querySelectorAll('*').forEach(c => {{ if (c.shadowRoot) walk(c.shadowRoot); }});
-                }} catch(e) {{}}
-            }};
+                    });
+                    node.querySelectorAll('*').forEach(function(c) { if (c.shadowRoot) walk(c.shadowRoot); });
+                } catch(e) {}
+            }
             walk(root);
             return res;
-        }}
+        }"""
 
-        const qField = document.querySelector('[contenteditable][placeholder]') ||
-                       deepQuery(document, '[contenteditable]')[0];
+    # Fill question
+    page.evaluate(f"""(function() {{
+        {deep_query_js()}
+        var qField = document.querySelector('[contenteditable][placeholder]') ||
+                     deepQuery(document, '[contenteditable]')[0];
         if (qField) {{
             qField.focus();
             document.execCommand('selectAll', false, null);
             document.execCommand('insertText', false, {json.dumps(q_text)});
         }}
-    """)
+    }})()""")
     time.sleep(1)
 
-    # Fill answer options
-    page.evaluate(f"""
-        function deepQuery(root, sel) {{
-            const res = [];
-            const walk = (node) => {{
-                try {{
-                    node.querySelectorAll(sel).forEach(el => {{
-                        const r = el.getBoundingClientRect();
-                        if (r.width > 0 && r.height > 0) res.push(el);
-                    }});
-                    node.querySelectorAll('*').forEach(c => {{ if (c.shadowRoot) walk(c.shadowRoot); }});
-                }} catch(e) {{}}
-            }};
-            walk(root);
-            return res;
-        }}
-
-        const options = {json.dumps(options)};
-        const answerIdx = {ans_idx};
-
-        // Get visible answer textareas
-        let textareas = deepQuery(document, 'textarea[placeholder*="Answer"], textarea[placeholder*="answer"]');
-        if (textareas.length === 0) {{
-            textareas = deepQuery(document, 'textarea');
-        }}
-
-        // Fill first two (they already exist)
-        for (let i = 0; i < Math.min(2, textareas.length); i++) {{
+    # Fill first two answer options
+    page.evaluate(f"""(function() {{
+        {deep_query_js()}
+        var opts = {json.dumps(options)};
+        var textareas = deepQuery(document, 'textarea[placeholder*="Answer"], textarea[placeholder*="answer"]');
+        if (textareas.length === 0) textareas = deepQuery(document, 'textarea');
+        for (var i = 0; i < Math.min(2, textareas.length); i++) {{
             textareas[i].focus();
-            document.execCommand('insertText', false, options[i]);
+            document.execCommand('insertText', false, opts[i]);
         }}
-    """)
+    }})()""")
     time.sleep(1)
 
     # Add answer 3 and 4 via "Add answer" button
     for extra_idx in range(2, 4):
-        added = page.evaluate(f"""
-            const btns = [...document.querySelectorAll('button')];
-            const addBtn = btns.find(b => b.textContent.trim() === 'Add answer');
-            if (addBtn) {{ addBtn.click(); true; }} else false;
-        """)
+        added = page.evaluate("""(function() {
+            var btns = Array.from(document.querySelectorAll('button'));
+            var addBtn = btns.find(function(b) { return b.textContent.trim() === 'Add answer'; });
+            if (addBtn) { addBtn.click(); return true; } return false;
+        })()""")
         time.sleep(1)
         if added:
-            page.evaluate(f"""
-                function deepQuery(root, sel) {{
-                    const res = [];
-                    const walk = (node) => {{
-                        try {{
-                            node.querySelectorAll(sel).forEach(el => {{
-                                const r = el.getBoundingClientRect();
-                                if (r.width > 0 && r.height > 0) res.push(el);
-                            }});
-                            node.querySelectorAll('*').forEach(c => {{ if (c.shadowRoot) walk(c.shadowRoot); }});
-                        }} catch(e) {{}}
-                    }};
-                    walk(root);
-                    return res;
-                }}
-                const options = {json.dumps(options)};
-                let textareas = deepQuery(document, 'textarea[placeholder*="Answer"], textarea[placeholder*="answer"]');
+            page.evaluate(f"""(function() {{
+                {deep_query_js()}
+                var opts = {json.dumps(options)};
+                var textareas = deepQuery(document, 'textarea[placeholder*="Answer"], textarea[placeholder*="answer"]');
                 if (textareas.length === 0) textareas = deepQuery(document, 'textarea');
-                const t = textareas[{extra_idx}];
+                var t = textareas[{extra_idx}];
                 if (t) {{
                     t.focus();
-                    document.execCommand('insertText', false, options[{extra_idx}]);
+                    document.execCommand('insertText', false, opts[{extra_idx}]);
                 }}
-            """)
+            }})()""")
             time.sleep(0.5)
 
     # Mark correct answer
-    page.evaluate(f"""
-        const correctBtns = [...document.querySelectorAll('[aria-label*="correct"], [aria-label*="Correct"]')];
+    page.evaluate(f"""(function() {{
+        var correctBtns = Array.from(document.querySelectorAll('[aria-label*="correct"], [aria-label*="Correct"]'));
         if (correctBtns[{ans_idx}]) correctBtns[{ans_idx}].click();
-    """)
+    }})()""")
     time.sleep(1)
 
     # Click Post
-    page.evaluate("""
-        document.activeElement.blur();
-    """)
+    page.evaluate("""(function() { document.activeElement.blur(); })()""")
     time.sleep(0.5)
-    page.evaluate("""
-        const postBtn = [...document.querySelectorAll('button')].find(
-            b => b.textContent.trim() === 'Post' && !b.disabled
+    page.evaluate("""(function() {
+        var postBtn = Array.from(document.querySelectorAll('button')).find(
+            function(b) { return b.textContent.trim() === 'Post' && !b.disabled; }
         );
         if (postBtn) postBtn.click();
-    """)
+    })()""")
     time.sleep(3)
     print(f"Posted: {q_text}")
 
