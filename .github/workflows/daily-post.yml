@@ -2,7 +2,7 @@ name: Post German Quiz
 
 on:
   schedule:
-    - cron: '0 * * * *'   # every hour, 24 times a day
+    - cron: '13 * * * *'   # every hour at :13 (avoids top-of-hour congestion that delays/drops runs)
   workflow_dispatch:        # allow manual trigger
 
 permissions:
