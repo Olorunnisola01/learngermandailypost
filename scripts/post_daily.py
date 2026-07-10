@@ -59,8 +59,14 @@ def create_steel_session():
             )
             r.raise_for_status()
             data = r.json()
+            print(f"[debug] Steel API response keys: {list(data.keys())}")
+            print(f"[debug] session id: {data.get('id','MISSING')}")
+            print(f"[debug] websocketUrl raw: {data.get('websocketUrl','MISSING')}")
             session_id    = data["id"]
-            ws_url        = data["websocketUrl"] + f"?apiKey={STEEL_API_KEY}"
+            raw_ws        = data.get("websocketUrl") or ""
+            # Append apiKey using & if URL already has query params, else ?
+            sep = "&" if "?" in raw_ws else "?"
+            ws_url        = raw_ws + f"{sep}apiKey={STEEL_API_KEY}"
             print(f"Steel session created: {session_id}")
             return session_id, ws_url
         except Exception as e:
