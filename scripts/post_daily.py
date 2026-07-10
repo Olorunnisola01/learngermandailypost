@@ -19,7 +19,7 @@ print(f"[debug] ctx_raw first 40 chars: {repr(_ctx_raw[:40])}")
 print(f"[debug] API key first char ord: {ord(STEEL_API_KEY[0]) if STEEL_API_KEY else 'empty'}")
 SESSION_CONTEXT = json.loads(_ctx_raw)
 CHANNEL_ID      = os.environ.get("YOUTUBE_CHANNEL_ID", "UCZhxwaicihPtiQg-VAfN14A")
-COMMUNITY_URL   = f"https://www.youtube.com/channel/{CHANNEL_ID}/community"
+COMMUNITY_URL   = "https://www.youtube.com/@learngermanwithoutstress/community"
 
 CONTENT_FILE = os.path.join(os.path.dirname(__file__), "..", "data", "content.json")
 STATE_FILE   = os.path.join(os.path.dirname(__file__), "..", "data", "state.json")
@@ -106,6 +106,17 @@ def page_dump(page, label):
 
 def post_quiz(page, question):
     """Navigate to Community tab and post a YouTube Quiz."""
+    # First go to youtube.com to check login state before hitting community tab
+    page.goto("https://www.youtube.com", wait_until="networkidle", timeout=60000)
+    time.sleep(3)
+    login_state = page.evaluate("""(function() {
+        // Check for avatar/account button (logged in) vs Sign In button
+        var signIn = document.querySelector('[aria-label="Sign in"]');
+        var avatar = document.querySelector('#avatar-btn') || document.querySelector('yt-img-shadow#avatar');
+        return {signedIn: !!avatar, signInBtnFound: !!signIn, title: document.title.substring(0,60)};
+    })()""")
+    print(f"[login-check] {login_state}")
+
     page.goto(COMMUNITY_URL, wait_until="networkidle", timeout=60000)
     time.sleep(4)
     page_dump(page, "after-goto")
