@@ -156,14 +156,22 @@ def post_quiz(page, question):
     print(f"[fill-question] {filled_q}")
     time.sleep(1)
 
-    # Step 3: Fill answer options — target TEXTAREA[Answer N] (not poll Option fields)
+    def visible_answer_textareas_js():
+        return """
+        function visibleAnswerTextareas() {
+            return Array.from(document.querySelectorAll('textarea')).filter(function(t) {
+                var p = (t.getAttribute('placeholder')||'').toLowerCase();
+                if (!p.includes('answer')) return false;
+                var r = t.getBoundingClientRect();
+                return r.width > 0 && r.height > 0;
+            });
+        }"""
+
+    # Step 3: Fill answer options — target visible TEXTAREA[Answer N] (not hidden poll Option fields)
     filled_opts = page.evaluate(f"""(function() {{
+        {visible_answer_textareas_js()}
         var opts = {json.dumps(options)};
-        // Get all visible answer textareas (placeholder "Answer 1", "Answer 2", etc.)
-        var tas = Array.from(document.querySelectorAll('textarea')).filter(function(t) {{
-            var p = (t.getAttribute('placeholder')||'').toLowerCase();
-            return p.includes('answer');
-        }});
+        var tas = visibleAnswerTextareas();
         var filled = [];
         for (var i = 0; i < Math.min(2, tas.length); i++) {{
             tas[i].focus();
@@ -176,26 +184,25 @@ def post_quiz(page, question):
     print(f"[fill-opts-1-2] {filled_opts}")
     time.sleep(1)
 
-    # Step 4: Add options 3 and 4 via "Add answer" button
+    # Step 4: Add options 3 and 4 via the visible "Add answer" button
     for extra_idx in range(2, 4):
         added = page.evaluate("""(function() {
-            var btns = Array.from(document.querySelectorAll('button'));
-            var b = btns.find(function(b) {
-                var t = (b.textContent||'').trim().toLowerCase();
-                return t === 'add answer' || t === 'add option';
+            var btns = Array.from(document.querySelectorAll('button')).filter(function(b) {
+                var r = b.getBoundingClientRect();
+                return r.width > 0 && r.height > 0;
             });
+            var b = btns.find(function(b) { return (b.textContent||'').trim().toLowerCase() === 'add answer'; });
+            if (!b) b = btns.find(function(b) { return (b.textContent||'').trim().toLowerCase() === 'add option'; });
             if (b) { b.click(); return b.textContent.trim(); }
             return null;
         })()""")
         print(f"[add-answer-{extra_idx}] {added}")
-        time.sleep(1)
+        time.sleep(1.5)
         if added:
             filled = page.evaluate(f"""(function() {{
+                {visible_answer_textareas_js()}
                 var opts = {json.dumps(options)};
-                var tas = Array.from(document.querySelectorAll('textarea')).filter(function(t) {{
-                    var p = (t.getAttribute('placeholder')||'').toLowerCase();
-                    return p.includes('answer');
-                }});
+                var tas = visibleAnswerTextareas();
                 var t = tas[{extra_idx}];
                 if (t) {{
                     t.focus();
@@ -210,13 +217,14 @@ def post_quiz(page, question):
 
     # Step 5: Mark the correct answer
     marked = page.evaluate(f"""(function() {{
-        // YouTube quiz correct-answer buttons typically have aria-label containing "correct"
-        var btns = Array.from(document.querySelectorAll('button,[role="radio"],[role="checkbox"]'));
+        var btns = Array.from(document.querySelectorAll('button,[role="radio"],[role="checkbox"]')).filter(function(b) {{
+            var r = b.getBoundingClientRect();
+            return r.width > 0 && r.height > 0;
+        }});
         var correct = btns.filter(function(b) {{
             var l = (b.getAttribute('aria-label')||b.getAttribute('title')||'').toLowerCase();
             return l.includes('correct') || l.includes('mark');
         }});
-        print('[mark-correct] found ' + correct.length + ' candidates');
         if (correct[{ans_idx}]) {{ correct[{ans_idx}].click(); return correct[{ans_idx}].getAttribute('aria-label'); }}
         return 'none found (count=' + correct.length + ')';
     }})()""")
