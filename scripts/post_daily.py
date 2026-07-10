@@ -12,9 +12,11 @@ import json, os, sys, time
 import requests
 from playwright.sync_api import sync_playwright
 
-STEEL_API_KEY   = os.environ["STEEL_API_KEY"]
-# Strip BOM (﻿) that can appear when the secret was pushed from a Windows machine
-_ctx_raw        = os.environ["STEEL_SESSION_CONTEXT"].lstrip('﻿').strip()
+STEEL_API_KEY   = os.environ["STEEL_API_KEY"].replace('﻿', '').strip()
+# Strip BOM (﻿) that appears when the secret was pushed from a Windows machine
+_ctx_raw        = os.environ["STEEL_SESSION_CONTEXT"].replace('﻿', '').strip()
+print(f"[debug] ctx_raw first 40 chars: {repr(_ctx_raw[:40])}")
+print(f"[debug] API key first char ord: {ord(STEEL_API_KEY[0]) if STEEL_API_KEY else 'empty'}")
 SESSION_CONTEXT = json.loads(_ctx_raw)
 CHANNEL_ID      = os.environ.get("YOUTUBE_CHANNEL_ID", "UCZhxwaicihPtiQg-VAfN14A")
 COMMUNITY_URL   = f"https://www.youtube.com/channel/{CHANNEL_ID}/community"
