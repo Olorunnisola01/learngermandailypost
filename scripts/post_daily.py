@@ -22,28 +22,35 @@ CHANNEL_ID      = os.environ.get("YOUTUBE_CHANNEL_ID", "UCZhxwaicihPtiQg-VAfN14A
 COMMUNITY_URL   = "https://www.youtube.com/@learngermanwithoutstress/community"
 
 CONTENT_FILE = os.path.join(os.path.dirname(__file__), "..", "data", "content.json")
+GRAMMAR_FILE = os.path.join(os.path.dirname(__file__), "..", "data", "grammar.json")
 STATE_FILE   = os.path.join(os.path.dirname(__file__), "..", "data", "state.json")
 
 
 def load_data():
     with open(CONTENT_FILE, encoding="utf-8") as f:
-        questions = json.load(f)
+        vocab_questions = json.load(f)
+    with open(GRAMMAR_FILE, encoding="utf-8") as f:
+        grammar_questions = json.load(f)
     try:
         with open(STATE_FILE, encoding="utf-8") as f:
             state = json.load(f)
     except FileNotFoundError:
-        state = {"posted": []}
-    return questions, state
+        state = {}
+    # Migrate legacy state format {"posted": [...]}  ->  {"vocab_posted": [...]}
+    if "posted" in state and "vocab_posted" not in state:
+        state["vocab_posted"] = state.pop("posted")
+    state.setdefault("vocab_posted", [])
+    state.setdefault("grammar_posted", [])
+    return vocab_questions, grammar_questions, state
 
 
-def next_question(questions, state):
-    posted = set(state.get("posted", []))
+def next_question(questions, posted_ids, label):
+    posted = set(posted_ids)
     for q in questions:
         if q["id"] not in posted:
             return q
-    # all posted — reset
-    print("All questions posted, resetting state.")
-    state["posted"] = []
+    print(f"All {label} questions posted, resetting.")
+    posted_ids.clear()
     return questions[0]
 
 
@@ -301,9 +308,11 @@ def post_quiz(page, question):
 
 
 def main():
-    questions, state = load_data()
-    question = next_question(questions, state)
-    print(f"Next question: {question['id']} — {question['question']}")
+    vocab_questions, grammar_questions, state = load_data()
+    vocab_q   = next_question(vocab_questions, state["vocab_posted"], "vocab")
+    grammar_q = next_question(grammar_questions, state["grammar_posted"], "grammar")
+    print(f"Next vocab question: {vocab_q['id']} — {vocab_q['question']}")
+    print(f"Next grammar question: {grammar_q['id']} — {grammar_q['question']}")
 
     session_id, ws_url = create_steel_session()
     try:
@@ -311,16 +320,22 @@ def main():
             browser = pw.chromium.connect_over_cdp(ws_url)
             ctx     = browser.contexts[0] if browser.contexts else browser.new_context()
             page    = ctx.pages[0] if ctx.pages else ctx.new_page()
-            post_quiz(page, question)
+
+            post_quiz(page, vocab_q)
+            state["vocab_posted"].append(vocab_q["id"])
+            with open(STATE_FILE, "w", encoding="utf-8") as f:
+                json.dump(state, f, indent=2)
+            print(f"Vocab state saved. Total posted: {len(state['vocab_posted'])}")
+
+            post_quiz(page, grammar_q)
+            state["grammar_posted"].append(grammar_q["id"])
+            with open(STATE_FILE, "w", encoding="utf-8") as f:
+                json.dump(state, f, indent=2)
+            print(f"Grammar state saved. Total posted: {len(state['grammar_posted'])}")
+
             browser.close()
     finally:
         release_steel_session(session_id)
-
-    # Update state
-    state.setdefault("posted", []).append(question["id"])
-    with open(STATE_FILE, "w", encoding="utf-8") as f:
-        json.dump(state, f, indent=2)
-    print(f"State updated. Total posted: {len(state['posted'])}")
 
 
 if __name__ == "__main__":

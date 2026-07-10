@@ -27,7 +27,7 @@ jobs:
           pip install playwright requests
           playwright install chromium
 
-      - name: Post quiz question
+      - name: Post vocab + grammar quiz questions
         env:
           STEEL_API_KEY:          ${{ secrets.STEEL_API_KEY }}
           STEEL_SESSION_CONTEXT:  ${{ secrets.STEEL_SESSION_CONTEXT }}
