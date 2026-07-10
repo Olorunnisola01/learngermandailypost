@@ -215,26 +215,61 @@ def post_quiz(page, question):
             print(f"[fill-opt-{extra_idx}] {filled}")
             time.sleep(0.5)
 
-    # Step 5: Mark the correct answer
+    # Step 5: Mark the correct answer (click the inner button inside the [role="radio"] wrapper)
     marked = page.evaluate(f"""(function() {{
-        var btns = Array.from(document.querySelectorAll('button,[role="radio"],[role="checkbox"]')).filter(function(b) {{
-            var r = b.getBoundingClientRect();
-            return r.width > 0 && r.height > 0;
-        }});
-        var correct = btns.filter(function(b) {{
-            var l = (b.getAttribute('aria-label')||b.getAttribute('title')||'').toLowerCase();
+        var radios = Array.from(document.querySelectorAll('[role="radio"]')).filter(function(r) {{
+            var l = (r.getAttribute('aria-label')||'').toLowerCase();
             return l.includes('correct') || l.includes('mark');
         }});
-        if (correct[{ans_idx}]) {{ correct[{ans_idx}].click(); return correct[{ans_idx}].getAttribute('aria-label'); }}
-        return 'none found (count=' + correct.length + ')';
+        if (radios[{ans_idx}]) {{
+            var target = radios[{ans_idx}].querySelector('button') || radios[{ans_idx}];
+            target.click();
+            return 'clicked radio ' + {ans_idx};
+        }}
+        return 'none found (count=' + radios.length + ')';
     }})()""")
     print(f"[mark-correct] {marked}")
     time.sleep(1)
+
+    # Verify the radio actually flipped to checked; retry once if not
+    checked = page.evaluate(f"""(function() {{
+        var radios = Array.from(document.querySelectorAll('[role="radio"]')).filter(function(r) {{
+            var l = (r.getAttribute('aria-label')||'').toLowerCase();
+            return l.includes('correct') || l.includes('mark');
+        }});
+        return radios[{ans_idx}] ? radios[{ans_idx}].getAttribute('aria-checked') : 'no-radio';
+    }})()""")
+    print(f"[mark-correct-verify] aria-checked={checked}")
+    if checked != "true":
+        page.evaluate(f"""(function() {{
+            var radios = Array.from(document.querySelectorAll('[role="radio"]')).filter(function(r) {{
+                var l = (r.getAttribute('aria-label')||'').toLowerCase();
+                return l.includes('correct') || l.includes('mark');
+            }});
+            if (radios[{ans_idx}]) {{
+                var target = radios[{ans_idx}].querySelector('button') || radios[{ans_idx}];
+                target.click();
+            }}
+        }})()""")
+        time.sleep(1)
+
     page_dump(page, "before-post")
 
-    # Step 6: Click Post
+    # Step 6: Wait for Post button to be enabled (poll up to 5s), then click
     page.evaluate("""(function(){document.activeElement.blur();})()""")
     time.sleep(0.5)
+    post_enabled = False
+    for _ in range(10):
+        post_enabled = page.evaluate("""(function() {
+            var btns = Array.from(document.querySelectorAll('button'));
+            var b = btns.find(function(b) { return (b.textContent||'').trim() === 'Post'; });
+            return b ? !b.disabled : false;
+        })()""")
+        if post_enabled:
+            break
+        time.sleep(0.5)
+    print(f"[post-button-enabled] {post_enabled}")
+
     clicked_post = page.evaluate("""(function() {
         var btns = Array.from(document.querySelectorAll('button'));
         var b = btns.find(function(b) {
@@ -242,11 +277,27 @@ def post_quiz(page, question):
             return t === 'Post' && !b.disabled;
         });
         if (b) { b.click(); return 'Post clicked'; }
-        return 'Post button not found';
+        return 'Post button not found or still disabled';
     })()""")
     print(f"[click-post] {clicked_post}")
     time.sleep(4)
     page_dump(page, "after-post")
+
+    # Step 7: Verify submission — the composer resets to its blank/placeholder state on success
+    submitted = False
+    for _ in range(6):
+        reset_state = page.evaluate("""(function() {
+            var root = document.querySelector('#contenteditable-root');
+            var text = root ? root.textContent.trim() : null;
+            return { rootText: text };
+        })()""")
+        if not reset_state["rootText"]:
+            submitted = True
+            break
+        time.sleep(1)
+    print(f"[submit-verify] submitted={submitted}")
+    if not submitted:
+        raise RuntimeError("Post did not submit — composer still shows unsent content after clicking Post")
 
 
 def main():
