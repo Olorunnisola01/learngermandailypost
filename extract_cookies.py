@@ -1,53 +1,54 @@
 """
-extract_cookies.py — Extract Chrome Profile 12 cookies for Steel.dev.
-Run AFTER closing Chrome (or at least ensuring Profile 12 is not active).
+extract_cookies.py
+Extracts YouTube/Google cookies from ixBrowser Profile 10 (Learn German Without Stress).
+ixBrowser uses v10 AES-GCM encryption with a 32-byte prefix after decryption.
+Run with ixBrowser Profile 10 CLOSED.
 """
 import base64, json, os, shutil, sqlite3, subprocess, sys
 import win32crypt
 from Crypto.Cipher import AES
 
-CHROME_USER_DATA = r"C:\Users\ADELEKEOLORUNISOLAO\AppData\Local\Google\Chrome\User Data"
-PROFILE          = "Profile 12"
-PROFILE_DIR      = os.path.join(CHROME_USER_DATA, PROFILE)
-LOCAL_STATE      = os.path.join(CHROME_USER_DATA, "Local State")
-DB_COPY          = r"C:\Users\ADELEKEOLORUNISOLAO\AppData\Local\Temp\yt_cookies_german.db"
-REPO_DIR         = r"C:\Users\ADELEKEOLORUNISOLAO\Desktop\learngermandailypost"
-GITHUB_REPO      = "Olorunnisola01/learngermandailypost"
+PROFILE_DATA = r"C:\Users\ADELEKEOLORUNISOLAO\AppData\Roaming\ixBrowser\Browser Data\6de0cc60e340fde4ae3b817082db09dd"
+LOCAL_STATE  = os.path.join(PROFILE_DATA, "Local State")
+COOKIES_SRC  = os.path.join(PROFILE_DATA, "Default", "Network", "Cookies")
+DB_COPY      = r"C:\Users\ADELEKEOLORUNISOLAO\AppData\Local\Temp\ix10_cookies.db"
+REPO_DIR     = r"C:\Users\ADELEKEOLORUNISOLAO\Desktop\learngermandailypost"
+GITHUB_REPO  = "Olorunnisola01/learngermandailypost"
+
 
 def get_aes_key():
     with open(LOCAL_STATE, encoding="utf-8") as f:
         ls = json.load(f)
-    enc = base64.b64decode(ls["os_crypt"]["encrypted_key"])[5:]  # strip 5-byte "DPAPI" header
+    enc = base64.b64decode(ls["os_crypt"]["encrypted_key"])[5:]  # strip "DPAPI" header
     return win32crypt.CryptUnprotectData(enc, None, None, None, 0)[1]
 
-def decrypt_cookie(key, encrypted_value):
-    if encrypted_value[:3] in (b"v10", b"v20"):
-        nonce = encrypted_value[3:15]
-        ct    = encrypted_value[15:-16]
-        tag   = encrypted_value[-16:]
+
+def decrypt_cookie(key, ev):
+    if ev[:3] in (b"v10", b"v20"):
+        nonce = ev[3:15]
+        ct    = ev[15:-16]
+        tag   = ev[-16:]
         try:
             plain = AES.new(key, AES.MODE_GCM, nonce=nonce).decrypt_and_verify(ct, tag)
-            return plain.decode("utf-8", errors="replace")  # No 32-byte prefix for Chrome
+            # ixBrowser adds a 32-byte prefix — strip it
+            return plain[32:].decode("utf-8", errors="replace")
         except Exception:
             return None
     else:
         try:
-            raw = win32crypt.CryptUnprotectData(encrypted_value, None, None, None, 0)[1]
-            return raw.decode("utf-8", errors="replace")
+            return win32crypt.CryptUnprotectData(ev, None, None, None, 0)[1].decode("utf-8", errors="replace")
         except Exception:
             return None
 
+
 def main():
-    cookies_src = os.path.join(PROFILE_DIR, "Default", "Cookies")
-    if not os.path.exists(cookies_src):
-        # Some profiles store directly under profile, not Default subfolder
-        cookies_src = os.path.join(PROFILE_DIR, "Cookies")
-    if not os.path.exists(cookies_src):
-        print(f"ERROR: Cookies file not found at {cookies_src}")
+    if not os.path.exists(COOKIES_SRC):
+        print(f"ERROR: Cookies not found at {COOKIES_SRC}")
         sys.exit(1)
 
-    print(f"Copying cookies from: {cookies_src}")
-    shutil.copy2(cookies_src, DB_COPY)
+    print(f"Copying cookies from: {COOKIES_SRC}")
+    shutil.copy2(COOKIES_SRC, DB_COPY)
+
     key = get_aes_key()
 
     conn = sqlite3.connect(DB_COPY)
@@ -55,7 +56,7 @@ def main():
     cur.execute("""
         SELECT host_key, path, name, encrypted_value, expires_utc, is_secure, is_httponly, samesite
         FROM cookies
-        WHERE host_key LIKE '%youtube.com' OR host_key LIKE '%google.com'
+        WHERE host_key LIKE '%youtube.com%' OR host_key LIKE '%google.com%'
         ORDER BY host_key, name
     """)
     rows = cur.fetchall()
@@ -65,7 +66,7 @@ def main():
     cookies = []
     for host_key, path, name, ev, expires_utc, is_secure, is_httponly, samesite in rows:
         value = decrypt_cookie(key, ev)
-        if value is None:
+        if not value:
             continue
         unix_ts = (expires_utc / 1_000_000) - 11644473600 if expires_utc and expires_utc > 0 else None
         c = {
@@ -81,24 +82,26 @@ def main():
             c["expires"] = int(unix_ts)
         cookies.append(c)
 
+    print(f"Decrypted {len(cookies)} cookies")
+
     ctx = {"cookies": cookies, "origins": []}
     out = os.path.join(REPO_DIR, "data", "steel_context.json")
     os.makedirs(os.path.dirname(out), exist_ok=True)
-    with open(out, "w", encoding="utf-8") as f:
+    with open(out, "w", encoding="utf-8", newline="\n") as f:
         json.dump(ctx, f, ensure_ascii=True, indent=2)
-    print(f"Saved {len(cookies)} cookies to {out}")
+    print(f"Saved to {out}")
 
-    # Push to GitHub secret via stdin (avoids WinError 206 on long values)
     with open(out, "rb") as f:
         result = subprocess.run(
             ["gh", "secret", "set", "STEEL_SESSION_CONTEXT", "--repo", GITHUB_REPO],
             stdin=f, capture_output=True, text=True
         )
     if result.returncode == 0:
-        print("Secret STEEL_SESSION_CONTEXT saved to GitHub!")
+        print("SUCCESS: STEEL_SESSION_CONTEXT secret saved to GitHub!")
     else:
         print(f"gh secret set failed: {result.stderr}")
-        print("Save it manually from:", out)
+        print(f"Manual fallback: gh secret set STEEL_SESSION_CONTEXT --repo {GITHUB_REPO} < {out}")
+
 
 if __name__ == "__main__":
     main()

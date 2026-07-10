@@ -13,7 +13,9 @@ import requests
 from playwright.sync_api import sync_playwright
 
 STEEL_API_KEY   = os.environ["STEEL_API_KEY"]
-SESSION_CONTEXT = json.loads(os.environ["STEEL_SESSION_CONTEXT"])
+# Strip BOM (﻿) that can appear when the secret was pushed from a Windows machine
+_ctx_raw        = os.environ["STEEL_SESSION_CONTEXT"].lstrip('﻿').strip()
+SESSION_CONTEXT = json.loads(_ctx_raw)
 CHANNEL_ID      = os.environ.get("YOUTUBE_CHANNEL_ID", "UCZhxwaicihPtiQg-VAfN14A")
 COMMUNITY_URL   = f"https://www.youtube.com/channel/{CHANNEL_ID}/community"
 
@@ -46,10 +48,11 @@ def next_question(questions, state):
 def create_steel_session():
     for attempt in range(3):
         try:
+            body = json.dumps({"sessionContext": SESSION_CONTEXT, "useProxy": False})
             r = requests.post(
                 "https://api.steel.dev/v1/sessions",
                 headers={"Steel-Api-Key": STEEL_API_KEY, "Content-Type": "application/json"},
-                json={"sessionContext": SESSION_CONTEXT, "useProxy": False},
+                data=body.encode("utf-8"),
                 timeout=90,
             )
             r.raise_for_status()
