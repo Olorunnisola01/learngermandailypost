@@ -121,105 +121,54 @@ def post_quiz(page, question):
     time.sleep(4)
     page_dump(page, "after-goto")
 
-    # Click the "Create post" text box area to open composer
-    clicked_box = page.evaluate("""(function() {
-        var sels = ['#placeholder-area','#contenteditable-root','[contenteditable="true"]',
-                    '[placeholder*="community" i]','[placeholder*="post" i]'];
-        for (var i=0;i<sels.length;i++){
-            var el=document.querySelector(sels[i]);
-            if(el){el.click();return sels[i];}
-        }
-        return null;
-    })()""")
-    print(f"[click-box] {clicked_box}")
-    time.sleep(2)
-    page_dump(page, "after-click-box")
-
-    # Click "Poll / Quiz" button to open post-type picker
-    clicked_poll = page.evaluate("""(function() {
-        var all = Array.from(document.querySelectorAll('button,yt-icon-button,tp-yt-paper-button'));
-        var labels = ['quiz','poll'];
-        for (var i=0;i<all.length;i++){
-            var t=((all[i].textContent||'')+(all[i].getAttribute('aria-label')||'')).toLowerCase();
-            for(var j=0;j<labels.length;j++){if(t.includes(labels[j])){all[i].click();return t;}}
-        }
-        return null;
-    })()""")
-    print(f"[click-poll] {clicked_poll}")
-    time.sleep(2)
-    page_dump(page, "after-click-poll")
-
-    # Pick "Quiz" from menu if it appeared
+    # Step 1: Click the "Quiz" tab button directly (it's visible in the post-type bar)
     clicked_quiz = page.evaluate("""(function() {
-        var items = Array.from(document.querySelectorAll(
-            '[role="menuitem"],[role="option"],paper-item,ytd-menu-service-item-renderer'));
-        for(var i=0;i<items.length;i++){
-            var t=(items[i].textContent||'').trim().toLowerCase();
-            if(t==='quiz'||t.includes('quiz')){items[i].click();return t;}
-        }
+        var btns = Array.from(document.querySelectorAll('button'));
+        var b = btns.find(function(b) { return (b.textContent||'').trim() === 'Quiz'; });
+        if (b) { b.click(); return 'Quiz tab clicked'; }
         return null;
     })()""")
-    print(f"[click-quiz-item] {clicked_quiz}")
+    print(f"[click-quiz-tab] {clicked_quiz}")
     time.sleep(2)
-    page_dump(page, "after-quiz-picker")
+    page_dump(page, "after-quiz-tab")
 
-    q_text   = question["question"]
-    options  = question["options"]
-    ans_idx  = question["answer_index"]
+    q_text  = question["question"]
+    options = question["options"]
+    ans_idx = question["answer_index"]
 
-    def deep_query_js():
-        return """
-        function deepQuery(root, sel) {
-            var res = [];
-            function walk(node) {
-                try {
-                    node.querySelectorAll(sel).forEach(function(el) {
-                        var r = el.getBoundingClientRect();
-                        if (r.width > 0 && r.height > 0) res.push(el);
-                    });
-                    node.querySelectorAll('*').forEach(function(c) { if (c.shadowRoot) walk(c.shadowRoot); });
-                } catch(e) {}
-            }
-            walk(root);
-            return res;
-        }"""
-
-    # Fill question field
+    # Step 2: Fill the question field (the community ask box, NOT the search bar)
+    # After clicking Quiz tab, the question field is a contenteditable div with placeholder
+    # "Ask your community..." or similar — we target it by placeholder, avoiding the search textarea
     filled_q = page.evaluate(f"""(function() {{
-        {deep_query_js()}
-        var candidates = [
-            document.querySelector('#question-input textarea'),
-            document.querySelector('[placeholder*="question" i]'),
-            deepQuery(document,'textarea')[0],
-            document.querySelector('[contenteditable][placeholder]'),
-            deepQuery(document,'[contenteditable]')[0],
-        ];
-        for(var i=0;i<candidates.length;i++){{
-            var el=candidates[i];
-            if(el){{
-                el.focus();
-                document.execCommand('selectAll',false,null);
-                document.execCommand('insertText',false,{json.dumps(q_text)});
-                return el.tagName+'['+(el.getAttribute('placeholder')||'')+']';
-            }}
+        // Target the community post contenteditable, not the search bar
+        var qField = document.querySelector('[contenteditable][placeholder*="community" i]') ||
+                     document.querySelector('[contenteditable][placeholder*="ask" i]') ||
+                     document.querySelector('[contenteditable][placeholder*="question" i]') ||
+                     document.querySelector('#contenteditable-root');
+        if (qField) {{
+            qField.focus();
+            document.execCommand('selectAll', false, null);
+            document.execCommand('insertText', false, {json.dumps(q_text)});
+            return 'filled: ' + qField.tagName + '[' + (qField.getAttribute('placeholder')||'') + ']';
         }}
-        return null;
+        return 'question field not found';
     }})()""")
     print(f"[fill-question] {filled_q}")
     time.sleep(1)
-    page_dump(page, "after-fill-question")
 
-    # Fill first two answer options
+    # Step 3: Fill answer options — target TEXTAREA[Answer N] (not poll Option fields)
     filled_opts = page.evaluate(f"""(function() {{
-        {deep_query_js()}
         var opts = {json.dumps(options)};
-        var textareas = deepQuery(document,'textarea[placeholder*="Answer" i]');
-        if(textareas.length===0) textareas=deepQuery(document,'textarea');
-        var filled=[];
-        for(var i=0;i<Math.min(2,textareas.length);i++){{
-            textareas[i].focus();
-            document.execCommand('selectAll',false,null);
-            document.execCommand('insertText',false,opts[i]);
+        // Get all visible answer textareas (placeholder "Answer 1", "Answer 2", etc.)
+        var tas = Array.from(document.querySelectorAll('textarea')).filter(function(t) {{
+            var p = (t.getAttribute('placeholder')||'').toLowerCase();
+            return p.includes('answer');
+        }});
+        var filled = [];
+        for (var i = 0; i < Math.min(2, tas.length); i++) {{
+            tas[i].focus();
+            document.execCommand('selectAll', false, null);
+            document.execCommand('insertText', false, opts[i]);
             filled.push(opts[i]);
         }}
         return filled;
@@ -227,60 +176,65 @@ def post_quiz(page, question):
     print(f"[fill-opts-1-2] {filled_opts}")
     time.sleep(1)
 
-    # Add option 3 and 4
+    # Step 4: Add options 3 and 4 via "Add answer" button
     for extra_idx in range(2, 4):
         added = page.evaluate("""(function() {
-            var btns=Array.from(document.querySelectorAll('button'));
-            var b=btns.find(function(b){
-                var t=(b.textContent||'').trim().toLowerCase();
-                return t==='add answer'||t==='add option'||t.includes('add answer');
+            var btns = Array.from(document.querySelectorAll('button'));
+            var b = btns.find(function(b) {
+                var t = (b.textContent||'').trim().toLowerCase();
+                return t === 'add answer' || t === 'add option';
             });
-            if(b){b.click();return b.textContent.trim();} return null;
+            if (b) { b.click(); return b.textContent.trim(); }
+            return null;
         })()""")
-        print(f"[add-answer-btn-{extra_idx}] {added}")
+        print(f"[add-answer-{extra_idx}] {added}")
         time.sleep(1)
         if added:
             filled = page.evaluate(f"""(function() {{
-                {deep_query_js()}
-                var opts={json.dumps(options)};
-                var tas=deepQuery(document,'textarea[placeholder*="Answer" i]');
-                if(tas.length===0) tas=deepQuery(document,'textarea');
-                var t=tas[{extra_idx}];
-                if(t){{t.focus();document.execCommand('selectAll',false,null);
-                       document.execCommand('insertText',false,opts[{extra_idx}]);return opts[{extra_idx}];}}
-                return null;
+                var opts = {json.dumps(options)};
+                var tas = Array.from(document.querySelectorAll('textarea')).filter(function(t) {{
+                    var p = (t.getAttribute('placeholder')||'').toLowerCase();
+                    return p.includes('answer');
+                }});
+                var t = tas[{extra_idx}];
+                if (t) {{
+                    t.focus();
+                    document.execCommand('selectAll', false, null);
+                    document.execCommand('insertText', false, opts[{extra_idx}]);
+                    return opts[{extra_idx}];
+                }}
+                return 'textarea not found (count='+tas.length+')';
             }})()""")
             print(f"[fill-opt-{extra_idx}] {filled}")
             time.sleep(0.5)
 
-    # Mark correct answer
+    # Step 5: Mark the correct answer
     marked = page.evaluate(f"""(function() {{
-        var btns=Array.from(document.querySelectorAll('button,[role="radio"],[role="checkbox"]'));
-        var correct=btns.filter(function(b){{
-            var l=(b.getAttribute('aria-label')||b.getAttribute('title')||'').toLowerCase();
-            return l.includes('correct')||l.includes('mark')||l.includes('answer');
+        // YouTube quiz correct-answer buttons typically have aria-label containing "correct"
+        var btns = Array.from(document.querySelectorAll('button,[role="radio"],[role="checkbox"]'));
+        var correct = btns.filter(function(b) {{
+            var l = (b.getAttribute('aria-label')||b.getAttribute('title')||'').toLowerCase();
+            return l.includes('correct') || l.includes('mark');
         }});
-        console.log('correct btns:',correct.length,correct.map(function(b){{return b.getAttribute('aria-label');}}));
-        if(correct[{ans_idx}]){{correct[{ans_idx}].click();return correct[{ans_idx}].getAttribute('aria-label');}}
-        return 'none found (count='+correct.length+')';
+        print('[mark-correct] found ' + correct.length + ' candidates');
+        if (correct[{ans_idx}]) {{ correct[{ans_idx}].click(); return correct[{ans_idx}].getAttribute('aria-label'); }}
+        return 'none found (count=' + correct.length + ')';
     }})()""")
     print(f"[mark-correct] {marked}")
     time.sleep(1)
     page_dump(page, "before-post")
 
-    # Click Post button
+    # Step 6: Click Post
     page.evaluate("""(function(){document.activeElement.blur();})()""")
     time.sleep(0.5)
     clicked_post = page.evaluate("""(function() {
-        var btns=Array.from(document.querySelectorAll('button,ytd-button-renderer,tp-yt-paper-button'));
-        var b=btns.find(function(b){
-            var t=(b.textContent||'').trim();
-            return (t==='Post'||t==='post')&&!b.disabled;
+        var btns = Array.from(document.querySelectorAll('button'));
+        var b = btns.find(function(b) {
+            var t = (b.textContent||'').trim();
+            return t === 'Post' && !b.disabled;
         });
-        if(b){b.click();return 'Post btn clicked';}
-        var b2=btns.find(function(b){return (b.getAttribute('aria-label')||'').toLowerCase()==='post';});
-        if(b2){b2.click();return 'aria-label=post clicked';}
-        return null;
+        if (b) { b.click(); return 'Post clicked'; }
+        return 'Post button not found';
     })()""")
     print(f"[click-post] {clicked_post}")
     time.sleep(4)
