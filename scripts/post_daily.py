@@ -111,20 +111,20 @@ def page_dump(page, label):
     print(f"[{label}] inputs={info['inputs']}")
 
 
-def post_quiz(page, question):
-    """Navigate to Community tab and post a YouTube Quiz."""
-    # First go to youtube.com to check login state before hitting community tab
-    page.goto("https://www.youtube.com", wait_until="networkidle", timeout=60000)
+def check_login(page):
+    page.goto("https://www.youtube.com", wait_until="domcontentloaded", timeout=60000)
     time.sleep(3)
     login_state = page.evaluate("""(function() {
-        // Check for avatar/account button (logged in) vs Sign In button
         var signIn = document.querySelector('[aria-label="Sign in"]');
         var avatar = document.querySelector('#avatar-btn') || document.querySelector('yt-img-shadow#avatar');
         return {signedIn: !!avatar, signInBtnFound: !!signIn, title: document.title.substring(0,60)};
     })()""")
     print(f"[login-check] {login_state}")
 
-    page.goto(COMMUNITY_URL, wait_until="networkidle", timeout=60000)
+
+def post_quiz(page, question):
+    """Navigate to Community tab and post a YouTube Quiz."""
+    page.goto(COMMUNITY_URL, wait_until="domcontentloaded", timeout=60000)
     time.sleep(4)
     page_dump(page, "after-goto")
 
@@ -320,6 +320,8 @@ def main():
             browser = pw.chromium.connect_over_cdp(ws_url)
             ctx     = browser.contexts[0] if browser.contexts else browser.new_context()
             page    = ctx.pages[0] if ctx.pages else ctx.new_page()
+
+            check_login(page)
 
             post_quiz(page, vocab_q)
             state["vocab_posted"].append(vocab_q["id"])
