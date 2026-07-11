@@ -229,6 +229,17 @@ def post_quiz(page, question):
     # that the framework's listeners actually recognize, and force= bypasses the visibility check.
     explanations = question.get("explanations")
     if explanations:
+        # Dump the DOM around the whole quiz editor to find any toggle/expand control that
+        # gates the (currently zero-size) explain fields — plain fill isn't sticking.
+        wide_dump = page.evaluate("""(function() {
+            var host = document.querySelector('ytd-backstage-quiz-editor-renderer') ||
+                       document.querySelector('[class*="quiz-editor"]');
+            if (!host) return 'quiz editor host not found';
+            var html = host.outerHTML;
+            return html.length > 6000 ? html.substring(0, 6000) : html;
+        })()""")
+        print(f"[quiz-editor-html] {wide_dump}")
+
         explain_locator = page.locator('textarea[placeholder="Explain why this is correct (optional)"]')
         count = explain_locator.count()
         filled = 0
