@@ -263,14 +263,17 @@ def post_quiz(page, question):
     # Step 5b: Fill the "Explain why this is correct" field — YouTube only reveals/keeps ONE such
     # field, for whichever answer is marked correct (it's display:none for the other 3 until then).
     # Combine the correct-answer explanation with condensed reasons the others are wrong, capped at
-    # the field's 500-char limit.
+    # the field's 500-char limit. YouTube renders this text with white-space:normal, which collapses
+    # plain "\n" into a space — use U+2028 (Unicode Line Separator) instead, which browsers render
+    # as a real forced line break even under white-space:normal.
+    LINE_SEP = " "
     explanations = question.get("explanations")
     if explanations:
         combined = explanations[ans_idx]
         for i, exp in enumerate(explanations):
             if i == ans_idx:
                 continue
-            candidate = combined + "\n" + exp
+            candidate = combined + LINE_SEP + exp
             if len(candidate) > 495:
                 break
             combined = candidate
