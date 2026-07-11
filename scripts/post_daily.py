@@ -222,74 +222,6 @@ def post_quiz(page, question):
             print(f"[fill-opt-{extra_idx}] {filled}")
             time.sleep(0.5)
 
-    # Step 4b: Fill the "Explain why this is correct (optional)" field for each answer, in the same order.
-    # These <textarea>s are laid out with zero size until interacted with. Setting .value via JS and
-    # dispatching synthetic events left the framework's bound state unchanged (confirmed empty on the
-    # live post), so use Playwright's locator.fill(force=True) instead — it drives real CDP-level input
-    # that the framework's listeners actually recognize, and force= bypasses the visibility check.
-    explanations = question.get("explanations")
-    if explanations:
-        # Locate the explain textarea directly and dump its actual ancestor chain (each level's
-        # tag/class/inline style) up to 8 levels, to find whatever collapses it to zero size.
-        ancestor_dump = page.evaluate("""(function() {
-            var t = document.querySelector('textarea[placeholder="Explain why this is correct (optional)"]');
-            if (!t) return 'explain textarea not found';
-            var chain = [];
-            var el = t;
-            for (var i = 0; i < 10 && el; i++) {
-                var cs = window.getComputedStyle(el);
-                chain.push({
-                    tag: el.tagName,
-                    cls: el.className,
-                    inlineStyle: el.getAttribute('style'),
-                    display: cs.display,
-                    height: cs.height,
-                    overflow: cs.overflow,
-                    maxHeight: cs.maxHeight
-                });
-                el = el.parentElement;
-            }
-            return chain;
-        })()""")
-        print(f"[explain-ancestor-chain] {ancestor_dump}")
-
-        # Find the toggle that reveals the hidden .quiz-explanation-input container: search each
-        # .quiz-option block for buttons/links whose text or aria-label mentions "explanation".
-        toggle_dump = page.evaluate("""(function() {
-            var opts = Array.from(document.querySelectorAll('.quiz-option'));
-            return opts.map(function(opt, idx) {
-                var candidates = Array.from(opt.querySelectorAll('button, a, yt-icon-button, [role="button"]'));
-                var matches = candidates.filter(function(c) {
-                    var t = (c.textContent||'').toLowerCase();
-                    var a = (c.getAttribute('aria-label')||'').toLowerCase();
-                    return t.includes('explan') || a.includes('explan');
-                });
-                return {
-                    optionIndex: idx,
-                    allButtonLabels: candidates.map(function(c){return c.getAttribute('aria-label') || (c.textContent||'').trim().substring(0,30);}),
-                    explanationToggleMatches: matches.length
-                };
-            });
-        })()""")
-        print(f"[explanation-toggle-search] {toggle_dump}")
-
-        explain_locator = page.locator('textarea[placeholder="Explain why this is correct (optional)"]')
-        count = explain_locator.count()
-        filled = 0
-        for i in range(min(len(explanations), count)):
-            try:
-                explain_locator.nth(i).fill(explanations[i], force=True, timeout=5000)
-                filled += 1
-            except Exception as e:
-                print(f"[fill-explanation-{i}] failed: {e}")
-        print(f"[fill-explanations] filled={filled} found={count}")
-        time.sleep(1)
-        readback = page.evaluate("""(function() {
-            return Array.from(document.querySelectorAll('textarea[placeholder="Explain why this is correct (optional)"]'))
-                .map(function(t){ return t.value.substring(0, 40); });
-        })()""")
-        print(f"[fill-explanations-readback] {readback}")
-
     # Step 5: Mark the correct answer (click the inner button inside the [role="radio"] wrapper)
     marked = page.evaluate(f"""(function() {{
         var radios = Array.from(document.querySelectorAll('[role="radio"]')).filter(function(r) {{
@@ -327,6 +259,32 @@ def post_quiz(page, question):
             }}
         }})()""")
         time.sleep(1)
+
+    # Step 5b: Fill the "Explain why this is correct" field — YouTube only reveals/keeps ONE such
+    # field, for whichever answer is marked correct (it's display:none for the other 3 until then).
+    # Combine the correct-answer explanation with condensed reasons the others are wrong, capped at
+    # the field's 500-char limit.
+    explanations = question.get("explanations")
+    if explanations:
+        combined = explanations[ans_idx]
+        for i, exp in enumerate(explanations):
+            if i == ans_idx:
+                continue
+            candidate = combined + " " + exp
+            if len(candidate) > 495:
+                break
+            combined = candidate
+        explain_locator = page.locator('textarea[placeholder="Explain why this is correct (optional)"]')
+        visible_explain = explain_locator.locator("visible=true")
+        vcount = visible_explain.count()
+        filled_explain = "none"
+        if vcount > 0:
+            try:
+                visible_explain.first.fill(combined[:500], timeout=5000)
+                filled_explain = "ok"
+            except Exception as e:
+                filled_explain = f"failed: {e}"
+        print(f"[fill-explanation] visible_count={vcount} result={filled_explain}")
 
     page_dump(page, "before-post")
 
