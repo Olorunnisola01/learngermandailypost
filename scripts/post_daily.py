@@ -223,32 +223,28 @@ def post_quiz(page, question):
             time.sleep(0.5)
 
     # Step 4b: Fill the "Explain why this is correct (optional)" field for each answer, in the same order.
-    # These <textarea>s are laid out with zero size until interacted with, so execCommand('insertText')
-    # (which needs a visible focus point) can't reach them. Set .value via the native setter instead,
-    # then dispatch 'input' so the Polymer component's internal/bound state updates.
+    # These <textarea>s are laid out with zero size until interacted with. Setting .value via JS and
+    # dispatching synthetic events left the framework's bound state unchanged (confirmed empty on the
+    # live post), so use Playwright's locator.fill(force=True) instead — it drives real CDP-level input
+    # that the framework's listeners actually recognize, and force= bypasses the visibility check.
     explanations = question.get("explanations")
     if explanations:
-        filled_explain = page.evaluate(f"""(function() {{
-            var opts = {json.dumps(explanations)};
-            function isExplainField(t) {{
-                var p = (t.getAttribute('placeholder')||'').toLowerCase();
-                var a = (t.getAttribute('aria-label')||'').toLowerCase();
-                return p.includes('explain') || a.includes('explain');
-            }}
-            var tas = Array.from(document.querySelectorAll('textarea')).filter(isExplainField);
-            var setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
-            var filled = [];
-            for (var i = 0; i < Math.min(opts.length, tas.length); i++) {{
-                var t = tas[i];
-                setter.call(t, opts[i]);
-                t.dispatchEvent(new Event('input', {{ bubbles: true, composed: true }}));
-                t.dispatchEvent(new Event('change', {{ bubbles: true, composed: true }}));
-                filled.push(t.value === opts[i]);
-            }}
-            return {{count: filled.filter(Boolean).length, tasFound: tas.length}};
-        }})()""")
-        print(f"[fill-explanations] {filled_explain}")
+        explain_locator = page.locator('textarea[placeholder="Explain why this is correct (optional)"]')
+        count = explain_locator.count()
+        filled = 0
+        for i in range(min(len(explanations), count)):
+            try:
+                explain_locator.nth(i).fill(explanations[i], force=True, timeout=5000)
+                filled += 1
+            except Exception as e:
+                print(f"[fill-explanation-{i}] failed: {e}")
+        print(f"[fill-explanations] filled={filled} found={count}")
         time.sleep(1)
+        readback = page.evaluate("""(function() {
+            return Array.from(document.querySelectorAll('textarea[placeholder="Explain why this is correct (optional)"]'))
+                .map(function(t){ return t.value.substring(0, 40); });
+        })()""")
+        print(f"[fill-explanations-readback] {readback}")
 
     # Step 5: Mark the correct answer (click the inner button inside the [role="radio"] wrapper)
     marked = page.evaluate(f"""(function() {{
