@@ -222,6 +222,28 @@ def post_quiz(page, question):
             print(f"[fill-opt-{extra_idx}] {filled}")
             time.sleep(0.5)
 
+    # Step 4b: Fill the "Explain why this is correct (optional)" field for each answer, in the same order
+    explanations = question.get("explanations")
+    if explanations:
+        filled_explain = page.evaluate(f"""(function() {{
+            var opts = {json.dumps(explanations)};
+            var tas = Array.from(document.querySelectorAll('textarea')).filter(function(t) {{
+                var p = (t.getAttribute('placeholder')||'').toLowerCase();
+                var r = t.getBoundingClientRect();
+                return p.includes('explain') && r.width > 0 && r.height > 0;
+            }});
+            var filled = [];
+            for (var i = 0; i < Math.min(opts.length, tas.length); i++) {{
+                tas[i].focus();
+                document.execCommand('selectAll', false, null);
+                document.execCommand('insertText', false, opts[i]);
+                filled.push(true);
+            }}
+            return {{count: filled.length, tasFound: tas.length}};
+        }})()""")
+        print(f"[fill-explanations] {filled_explain}")
+        time.sleep(1)
+
     # Step 5: Mark the correct answer (click the inner button inside the [role="radio"] wrapper)
     marked = page.evaluate(f"""(function() {{
         var radios = Array.from(document.querySelectorAll('[role="radio"]')).filter(function(r) {{

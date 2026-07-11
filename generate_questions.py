@@ -1127,6 +1127,9 @@ ADVERBS = [
 def make_questions(pairs, all_pairs):
     """One question per pair, 3 wrong answers from same pool."""
     german_vals = [g for _, g in all_pairs]
+    de_to_en = {}
+    for e, g in all_pairs:
+        de_to_en.setdefault(g, e)
     questions = []
     for eng, correct_de in pairs:
         wrong_pool = [g for g in german_vals if g != correct_de]
@@ -1136,10 +1139,18 @@ def make_questions(pairs, all_pairs):
         options = wrongs + [correct_de]
         random.shuffle(options)
         answer_index = options.index(correct_de)
+        explanations = []
+        for opt in options:
+            if opt == correct_de:
+                explanations.append(f"'{opt}' is correct — it is the German word for '{eng}'.")
+            else:
+                wrong_eng = de_to_en.get(opt, "something else")
+                explanations.append(f"'{opt}' is incorrect — it means '{wrong_eng}', not '{eng}'.")
         questions.append({
             "question": f"What is the German word for '{eng}'?",
             "options": options,
             "answer_index": answer_index,
+            "explanations": explanations,
         })
     return questions
 
