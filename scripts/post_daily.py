@@ -222,60 +222,30 @@ def post_quiz(page, question):
             print(f"[fill-opt-{extra_idx}] {filled}")
             time.sleep(0.5)
 
-    # Step 4b: Fill the "Explain why this is correct (optional)" field for each answer, in the same order
+    # Step 4b: Fill the "Explain why this is correct (optional)" field for each answer, in the same order.
+    # These <textarea>s are laid out with zero size until interacted with, so execCommand('insertText')
+    # (which needs a visible focus point) can't reach them. Set .value via the native setter instead,
+    # then dispatch 'input' so the Polymer component's internal/bound state updates.
     explanations = question.get("explanations")
     if explanations:
-        # Debug: dump every textarea's placeholder/aria-label/nearby label text so we can see
-        # how the explain fields are actually identified if the primary selector misses them.
-        debug_dump = page.evaluate("""(function() {
-            return Array.from(document.querySelectorAll('textarea')).map(function(t) {
-                var label = t.closest('div') ? (t.closest('div').querySelector('label') || {}).textContent : null;
-                return {
-                    placeholder: t.getAttribute('placeholder'),
-                    ariaLabel: t.getAttribute('aria-label'),
-                    ariaPlaceholder: t.getAttribute('aria-placeholder'),
-                    nearbyLabel: label,
-                    visible: (function(){var r=t.getBoundingClientRect(); return r.width>0 && r.height>0;})()
-                };
-            });
-        })()""")
-        print(f"[debug-textareas] {debug_dump}")
-
-        # Inspect the DOM structure around the first (hidden) explain textarea to find any
-        # collapse/expand toggle control that reveals it.
-        structure_dump = page.evaluate("""(function() {
-            var tas = Array.from(document.querySelectorAll('textarea')).filter(function(t) {
-                return (t.getAttribute('placeholder')||'').toLowerCase().includes('explain');
-            });
-            if (!tas[0]) return 'no explain textarea found';
-            var container = tas[0];
-            for (var i = 0; i < 4 && container.parentElement; i++) container = container.parentElement;
-            return container.outerHTML.substring(0, 2000);
-        })()""")
-        print(f"[explain-container-html] {structure_dump}")
-
         filled_explain = page.evaluate(f"""(function() {{
             var opts = {json.dumps(explanations)};
             function isExplainField(t) {{
                 var p = (t.getAttribute('placeholder')||'').toLowerCase();
                 var a = (t.getAttribute('aria-label')||'').toLowerCase();
-                var ap = (t.getAttribute('aria-placeholder')||'').toLowerCase();
-                var labelEl = t.closest('div') ? t.closest('div').querySelector('label') : null;
-                var lbl = (labelEl ? labelEl.textContent : '').toLowerCase();
-                return p.includes('explain') || a.includes('explain') || ap.includes('explain') || lbl.includes('explain');
+                return p.includes('explain') || a.includes('explain');
             }}
-            var tas = Array.from(document.querySelectorAll('textarea')).filter(function(t) {{
-                var r = t.getBoundingClientRect();
-                return isExplainField(t) && r.width > 0 && r.height > 0;
-            }});
+            var tas = Array.from(document.querySelectorAll('textarea')).filter(isExplainField);
+            var setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
             var filled = [];
             for (var i = 0; i < Math.min(opts.length, tas.length); i++) {{
-                tas[i].focus();
-                document.execCommand('selectAll', false, null);
-                document.execCommand('insertText', false, opts[i]);
-                filled.push(true);
+                var t = tas[i];
+                setter.call(t, opts[i]);
+                t.dispatchEvent(new Event('input', {{ bubbles: true, composed: true }}));
+                t.dispatchEvent(new Event('change', {{ bubbles: true, composed: true }}));
+                filled.push(t.value === opts[i]);
             }}
-            return {{count: filled.length, tasFound: tas.length}};
+            return {{count: filled.filter(Boolean).length, tasFound: tas.length}};
         }})()""")
         print(f"[fill-explanations] {filled_explain}")
         time.sleep(1)
