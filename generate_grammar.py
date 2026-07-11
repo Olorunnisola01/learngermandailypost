@@ -140,6 +140,36 @@ def get_adjective_list():
     return adjs
 
 
+def get_noun_english_map():
+    mapping = {}
+    for eng, de in gq.ALL_NOUNS:
+        parsed = parse_noun(de)
+        if not parsed:
+            continue
+        _, bare = parsed
+        mapping.setdefault(bare, eng)
+    return mapping
+
+
+def get_verb_english_map():
+    mapping = {}
+    for eng, de in gq.ALL_VERBS:
+        de = de.strip()
+        eng = eng.strip()
+        mapping.setdefault(de, eng[3:] if eng.lower().startswith("to ") else eng)
+    return mapping
+
+
+def get_adjective_english_map():
+    mapping = {}
+    for eng, de in gq.ALL_ADJECTIVES:
+        de = de.strip()
+        if "/" in de or " " in de:
+            continue
+        mapping.setdefault(de, eng.strip())
+    return mapping
+
+
 def make_mc(question_text, correct, explain_correct, wrong_with_explain):
     """wrong_with_explain: list of (wrong_option_text, explanation_text), len==3."""
     options = [w for w, _ in wrong_with_explain] + [correct]
@@ -151,9 +181,11 @@ def make_mc(question_text, correct, explain_correct, wrong_with_explain):
     return {"question": question_text, "options": options, "answer_index": answer_index, "explanations": explanations}
 
 
-def gen_verb_forward(verbs):
+def gen_verb_forward(verbs, verb_en):
     out = []
     for inf, forms in verbs:
+        meaning = verb_en.get(inf)
+        gloss = f"'{inf}' means '{meaning}'. " if meaning else ""
         for person in PERSONS:
             correct = forms[person]
             # unique (form, person-label) pairs excluding the correct one
@@ -167,11 +199,11 @@ def gen_verb_forward(verbs):
             complement = random.choice(COMPLEMENTS)
             sentence = f"{PRONOUN_TEXT[person]} ___ {complement}."
             explain_correct = (
-                f"'{correct}' is correct — it is the present-tense form of '{inf}' "
+                f"{gloss}'{correct}' is correct — it is the present-tense form of '{inf}' "
                 f"for '{PRONOUN_TEXT[person]}' ({PRONOUN_EN[person]})."
             )
             wrong_with_explain = [
-                (f, f"'{f}' is incorrect — that is the form of '{inf}' used with "
+                (f, f"{gloss}'{f}' is incorrect — that is the form of '{inf}' used with "
                     f"'{PRONOUN_TEXT[p]}' ({PRONOUN_EN[p]}), not '{PRONOUN_TEXT[person]}'.")
                 for f, p in wrong_forms
             ]
@@ -179,9 +211,11 @@ def gen_verb_forward(verbs):
     return out
 
 
-def gen_verb_reverse(verbs):
+def gen_verb_reverse(verbs, verb_en):
     out = []
     for inf, forms in verbs:
+        meaning = verb_en.get(inf)
+        gloss = f"'{inf}' means '{meaning}'. " if meaning else ""
         for person in ("ich", "du"):
             verb_form = forms[person]
             correct = PRONOUN_TEXT[person]
@@ -189,11 +223,11 @@ def gen_verb_reverse(verbs):
             complement = random.choice(COMPLEMENTS)
             sentence = f"___ {verb_form} {complement}."
             explain_correct = (
-                f"'{correct}' is correct — '{verb_form}' is the '{inf}' form used with "
+                f"{gloss}'{correct}' is correct — '{verb_form}' is the '{inf}' form used with "
                 f"'{correct}' ({PRONOUN_EN[person]})."
             )
             wrong_with_explain = [
-                (PRONOUN_TEXT[p], f"'{PRONOUN_TEXT[p]}' is incorrect — '{verb_form}' does not match "
+                (PRONOUN_TEXT[p], f"{gloss}'{PRONOUN_TEXT[p]}' is incorrect — '{verb_form}' does not match "
                                    f"the '{inf}' conjugation for '{PRONOUN_TEXT[p]}' ({PRONOUN_EN[p]}).")
                 for p in distractor_persons
             ]
@@ -201,15 +235,17 @@ def gen_verb_reverse(verbs):
     return out
 
 
-def gen_noun_article(nouns):
+def gen_noun_article(nouns, noun_en):
     out = []
     for article, bare in nouns:
         gender = GENDER_NAME[article]
+        meaning = noun_en.get(bare)
+        gloss = f"'{bare}' means '{meaning}'. " if meaning else ""
         # Nominative
         wrong_articles = [a for a in ("der", "die", "das", "dem") if a != article][:3]
-        explain_correct = f"'{article}' is correct — '{bare}' is a {gender} noun ('{article} {bare}')."
+        explain_correct = f"{gloss}'{article}' is correct — '{bare}' is a {gender} noun ('{article} {bare}')."
         wrong_with_explain = [
-            (a, f"'{a}' is incorrect — '{bare}' is {gender} ('{article} {bare}'), not the gender/case '{a}' marks.")
+            (a, f"{gloss}'{a}' is incorrect — '{bare}' is {gender} ('{article} {bare}'), not the gender/case '{a}' marks.")
             for a in wrong_articles
         ]
         out.append(make_mc(f"___ {bare} ist neu.", article, explain_correct, wrong_with_explain))
@@ -220,55 +256,65 @@ def gen_noun_article(nouns):
         wrong_acc = [a for a in acc_options if a != correct_acc][:3]
         if article == "der":
             explain_correct_acc = (
-                f"'den' is correct — masculine nouns like '{bare}' change 'der' to 'den' "
+                f"{gloss}'den' is correct — masculine nouns like '{bare}' change 'der' to 'den' "
                 f"in the accusative case (the direct object of 'sehen')."
             )
         else:
             explain_correct_acc = (
-                f"'{correct_acc}' is correct — {gender} nouns like '{bare}' keep the article "
+                f"{gloss}'{correct_acc}' is correct — {gender} nouns like '{bare}' keep the article "
                 f"'{correct_acc}' in the accusative case (only masculine 'der' changes to 'den')."
             )
         wrong_with_explain_acc = [
-            (a, f"'{a}' is incorrect — the accusative form of '{article} {bare}' is '{correct_acc}', not '{a}'.")
+            (a, f"{gloss}'{a}' is incorrect — the accusative form of '{article} {bare}' is '{correct_acc}', not '{a}'.")
             for a in wrong_acc
         ]
         out.append(make_mc(f"Ich sehe ___ {bare}.", correct_acc, explain_correct_acc, wrong_with_explain_acc))
     return out
 
 
-def gen_pronoun_agreement(nouns):
+def gen_pronoun_agreement(nouns, noun_en):
     pronoun_map = {"der": "Er", "die": "Sie", "das": "Es"}
     out = []
     for article, bare in nouns:
         gender = GENDER_NAME[article]
+        meaning = noun_en.get(bare)
+        gloss = f"'{bare}' means '{meaning}'. " if meaning else ""
         correct = pronoun_map[article]
         pool = [p for p in ("Er", "Sie", "Es", "Ich", "Wir") if p != correct]
         wrong = random.sample(pool, 3)
-        explain_correct = f"'{correct}' is correct — '{bare}' is {gender} ('{article} {bare}'), so it is replaced by '{correct}'."
+        explain_correct = f"{gloss}'{correct}' is correct — '{bare}' is {gender} ('{article} {bare}'), so it is replaced by '{correct}'."
         wrong_with_explain = [
-            (w, f"'{w}' is incorrect — '{bare}' is {gender} ('{article} {bare}'), which is replaced by '{correct}', not '{w}'.")
+            (w, f"{gloss}'{w}' is incorrect — '{bare}' is {gender} ('{article} {bare}'), which is replaced by '{correct}', not '{w}'.")
             for w in wrong
         ]
         out.append(make_mc(f"{bare} ist hier. ___ ist neu.", correct, explain_correct, wrong_with_explain))
     return out
 
 
-def gen_adjective_ending(nouns, adjectives):
+def gen_adjective_ending(nouns, adjectives, noun_en, adj_en):
     article_map = {"der": ("ein", "er"), "die": ("eine", "e"), "das": ("ein", "es")}
     out = []
     for article, bare in nouns:
         gender = GENDER_NAME[article]
         indef, ending = article_map[article]
         adj = random.choice(adjectives)
+        noun_meaning = noun_en.get(bare)
+        adj_meaning = adj_en.get(adj)
+        gloss_parts = []
+        if noun_meaning:
+            gloss_parts.append(f"'{bare}' means '{noun_meaning}'")
+        if adj_meaning:
+            gloss_parts.append(f"'{adj}' means '{adj_meaning}'")
+        gloss = (", ".join(gloss_parts) + ". ") if gloss_parts else ""
         correct = adj + ending
         all_endings = ["er", "e", "es", "en"]
         wrong_endings = [e for e in all_endings if e != ending][:3]
         explain_correct = (
-            f"'{correct}' is correct — after '{indef}' the adjective takes the '-{ending}' ending "
+            f"{gloss}'{correct}' is correct — after '{indef}' the adjective takes the '-{ending}' ending "
             f"to agree with the {gender} noun '{bare}'."
         )
         wrong_with_explain = [
-            (adj + e, f"'{adj+e}' is incorrect — the '-{e}' ending does not agree with the {gender} noun '{bare}' after '{indef}'.")
+            (adj + e, f"{gloss}'{adj+e}' is incorrect — the '-{e}' ending does not agree with the {gender} noun '{bare}' after '{indef}'.")
             for e in wrong_endings
         ]
         out.append(make_mc(f"Das ist {indef} ___ {bare}.", correct, explain_correct, wrong_with_explain))
@@ -394,14 +440,17 @@ def main():
     verbs = get_verb_list()
     nouns = get_noun_list()
     adjectives = get_adjective_list()
+    verb_en = get_verb_english_map()
+    noun_en = get_noun_english_map()
+    adj_en = get_adjective_english_map()
     print(f"Usable verbs: {len(verbs)}, nouns: {len(nouns)}, adjectives: {len(adjectives)}")
 
     raw = []
-    raw += gen_verb_forward(verbs)
-    raw += gen_verb_reverse(verbs)
-    raw += gen_noun_article(nouns)
-    raw += gen_pronoun_agreement(nouns)
-    raw += gen_adjective_ending(nouns, adjectives)
+    raw += gen_verb_forward(verbs, verb_en)
+    raw += gen_verb_reverse(verbs, verb_en)
+    raw += gen_noun_article(nouns, noun_en)
+    raw += gen_pronoun_agreement(nouns, noun_en)
+    raw += gen_adjective_ending(nouns, adjectives, noun_en, adj_en)
     raw += gen_prepositions_conjunctions()
 
     print(f"Raw grammar questions: {len(raw)}")
