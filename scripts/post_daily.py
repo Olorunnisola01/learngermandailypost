@@ -253,6 +253,26 @@ def post_quiz(page, question):
         })()""")
         print(f"[explain-ancestor-chain] {ancestor_dump}")
 
+        # Find the toggle that reveals the hidden .quiz-explanation-input container: search each
+        # .quiz-option block for buttons/links whose text or aria-label mentions "explanation".
+        toggle_dump = page.evaluate("""(function() {
+            var opts = Array.from(document.querySelectorAll('.quiz-option'));
+            return opts.map(function(opt, idx) {
+                var candidates = Array.from(opt.querySelectorAll('button, a, yt-icon-button, [role="button"]'));
+                var matches = candidates.filter(function(c) {
+                    var t = (c.textContent||'').toLowerCase();
+                    var a = (c.getAttribute('aria-label')||'').toLowerCase();
+                    return t.includes('explan') || a.includes('explan');
+                });
+                return {
+                    optionIndex: idx,
+                    allButtonLabels: candidates.map(function(c){return c.getAttribute('aria-label') || (c.textContent||'').trim().substring(0,30);}),
+                    explanationToggleMatches: matches.length
+                };
+            });
+        })()""")
+        print(f"[explanation-toggle-search] {toggle_dump}")
+
         explain_locator = page.locator('textarea[placeholder="Explain why this is correct (optional)"]')
         count = explain_locator.count()
         filled = 0
