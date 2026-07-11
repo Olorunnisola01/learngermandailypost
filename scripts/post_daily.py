@@ -241,6 +241,19 @@ def post_quiz(page, question):
         })()""")
         print(f"[debug-textareas] {debug_dump}")
 
+        # Inspect the DOM structure around the first (hidden) explain textarea to find any
+        # collapse/expand toggle control that reveals it.
+        structure_dump = page.evaluate("""(function() {
+            var tas = Array.from(document.querySelectorAll('textarea')).filter(function(t) {
+                return (t.getAttribute('placeholder')||'').toLowerCase().includes('explain');
+            });
+            if (!tas[0]) return 'no explain textarea found';
+            var container = tas[0];
+            for (var i = 0; i < 4 && container.parentElement; i++) container = container.parentElement;
+            return container.outerHTML.substring(0, 2000);
+        })()""")
+        print(f"[explain-container-html] {structure_dump}")
+
         filled_explain = page.evaluate(f"""(function() {{
             var opts = {json.dumps(explanations)};
             function isExplainField(t) {{
