@@ -262,32 +262,38 @@ def post_quiz(page, question):
 
     # Step 5b: Fill the "Explain why this is correct" field — YouTube only reveals/keeps ONE such
     # field, for whichever answer is marked correct (it's display:none for the other 3 until then).
-    # Combine the correct-answer explanation with condensed reasons the others are wrong, capped at
-    # the field's 500-char limit. YouTube renders this text with white-space:normal, which collapses
-    # plain "\n" into a space — use U+2028 (Unicode Line Separator) instead, which browsers render
-    # as a real forced line break even under white-space:normal.
-    LINE_SEP = " "
+    # Plain newline characters and even U+2028 both get collapsed by this field's white-space:normal
+    # rendering (confirmed live — text still ran together as one paragraph), so send a real Enter
+    # keypress between segments instead of embedding a newline character.
     explanations = question.get("explanations")
     if explanations:
-        combined = explanations[ans_idx]
+        parts = [explanations[ans_idx]]
+        budget = 495 - len(explanations[ans_idx])
         for i, exp in enumerate(explanations):
             if i == ans_idx:
                 continue
-            candidate = combined + LINE_SEP + exp
-            if len(candidate) > 495:
+            if len(exp) + 1 > budget:
                 break
-            combined = candidate
+            parts.append(exp)
+            budget -= len(exp) + 1
+
         explain_locator = page.locator('textarea[placeholder="Explain why this is correct (optional)"]')
         visible_explain = explain_locator.locator("visible=true")
         vcount = visible_explain.count()
         filled_explain = "none"
         if vcount > 0:
             try:
-                visible_explain.first.fill(combined[:500], timeout=5000)
+                el = visible_explain.first
+                el.click(force=True, timeout=5000)
+                el.fill("", force=True)
+                for idx, part in enumerate(parts):
+                    if idx > 0:
+                        page.keyboard.press("Enter")
+                    page.keyboard.type(part)
                 filled_explain = "ok"
             except Exception as e:
                 filled_explain = f"failed: {e}"
-        print(f"[fill-explanation] visible_count={vcount} result={filled_explain}")
+        print(f"[fill-explanation] visible_count={vcount} parts={len(parts)} result={filled_explain}")
 
     page_dump(page, "before-post")
 
