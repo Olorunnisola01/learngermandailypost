@@ -229,17 +229,29 @@ def post_quiz(page, question):
     # that the framework's listeners actually recognize, and force= bypasses the visibility check.
     explanations = question.get("explanations")
     if explanations:
-        # Dump just the first .quiz-option block (skip past the answer textarea itself) to find
-        # any toggle/expand control that gates the (currently zero-size) explain field.
-        wide_dump = page.evaluate("""(function() {
-            var opt = document.querySelector('.quiz-option');
-            if (!opt) return 'quiz-option not found';
-            var html = opt.outerHTML;
-            var idx = html.indexOf('option-counter');
-            var slice = idx >= 0 ? html.substring(idx, idx + 6000) : html.substring(0, 6000);
-            return slice;
+        # Locate the explain textarea directly and dump its actual ancestor chain (each level's
+        # tag/class/inline style) up to 8 levels, to find whatever collapses it to zero size.
+        ancestor_dump = page.evaluate("""(function() {
+            var t = document.querySelector('textarea[placeholder="Explain why this is correct (optional)"]');
+            if (!t) return 'explain textarea not found';
+            var chain = [];
+            var el = t;
+            for (var i = 0; i < 10 && el; i++) {
+                var cs = window.getComputedStyle(el);
+                chain.push({
+                    tag: el.tagName,
+                    cls: el.className,
+                    inlineStyle: el.getAttribute('style'),
+                    display: cs.display,
+                    height: cs.height,
+                    overflow: cs.overflow,
+                    maxHeight: cs.maxHeight
+                });
+                el = el.parentElement;
+            }
+            return chain;
         })()""")
-        print(f"[quiz-option-html] {wide_dump}")
+        print(f"[explain-ancestor-chain] {ancestor_dump}")
 
         explain_locator = page.locator('textarea[placeholder="Explain why this is correct (optional)"]')
         count = explain_locator.count()
