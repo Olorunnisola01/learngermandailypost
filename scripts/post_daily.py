@@ -225,12 +225,35 @@ def post_quiz(page, question):
     # Step 4b: Fill the "Explain why this is correct (optional)" field for each answer, in the same order
     explanations = question.get("explanations")
     if explanations:
+        # Debug: dump every textarea's placeholder/aria-label/nearby label text so we can see
+        # how the explain fields are actually identified if the primary selector misses them.
+        debug_dump = page.evaluate("""(function() {
+            return Array.from(document.querySelectorAll('textarea')).map(function(t) {
+                var label = t.closest('div') ? (t.closest('div').querySelector('label') || {}).textContent : null;
+                return {
+                    placeholder: t.getAttribute('placeholder'),
+                    ariaLabel: t.getAttribute('aria-label'),
+                    ariaPlaceholder: t.getAttribute('aria-placeholder'),
+                    nearbyLabel: label,
+                    visible: (function(){var r=t.getBoundingClientRect(); return r.width>0 && r.height>0;})()
+                };
+            });
+        })()""")
+        print(f"[debug-textareas] {debug_dump}")
+
         filled_explain = page.evaluate(f"""(function() {{
             var opts = {json.dumps(explanations)};
-            var tas = Array.from(document.querySelectorAll('textarea')).filter(function(t) {{
+            function isExplainField(t) {{
                 var p = (t.getAttribute('placeholder')||'').toLowerCase();
+                var a = (t.getAttribute('aria-label')||'').toLowerCase();
+                var ap = (t.getAttribute('aria-placeholder')||'').toLowerCase();
+                var labelEl = t.closest('div') ? t.closest('div').querySelector('label') : null;
+                var lbl = (labelEl ? labelEl.textContent : '').toLowerCase();
+                return p.includes('explain') || a.includes('explain') || ap.includes('explain') || lbl.includes('explain');
+            }}
+            var tas = Array.from(document.querySelectorAll('textarea')).filter(function(t) {{
                 var r = t.getBoundingClientRect();
-                return p.includes('explain') && r.width > 0 && r.height > 0;
+                return isExplainField(t) && r.width > 0 && r.height > 0;
             }});
             var filled = [];
             for (var i = 0; i < Math.min(opts.length, tas.length); i++) {{
