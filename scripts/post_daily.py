@@ -270,7 +270,7 @@ def post_quiz(page, question):
         for i, exp in enumerate(explanations):
             if i == ans_idx:
                 continue
-            candidate = combined + " " + exp
+            candidate = combined + "\n" + exp
             if len(candidate) > 495:
                 break
             combined = candidate
