@@ -6,6 +6,14 @@
 
 
 
+
+
+
+
+
+
+
+
 post_daily.py
 
 
@@ -14,7 +22,23 @@ post_daily.py
 
 
 
+
+
+
+
+
+
+
+
 Posts the next German vocabulary quiz question to the Learn German Without Stress
+
+
+
+
+
+
+
+
 
 
 
@@ -38,7 +62,31 @@ YouTube Community tab using Steel.dev managed browser + Playwright.
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 Env vars expected (set as GitHub secrets):
+
+
+
+
+
+
+
+
 
 
 
@@ -54,7 +102,23 @@ Env vars expected (set as GitHub secrets):
 
 
 
+
+
+
+
+
+
+
+
   STEEL_SESSION_CONTEXT   - JSON blob from extract_cookies.py (cookies)
+
+
+
+
+
+
+
+
 
 
 
@@ -70,7 +134,23 @@ Env vars expected (set as GitHub secrets):
 
 
 
+
+
+
+
+
+
+
+
 """
+
+
+
+
+
+
+
+
 
 
 
@@ -86,7 +166,23 @@ import json, os, sys, time
 
 
 
+
+
+
+
+
+
+
+
 import requests
+
+
+
+
+
+
+
+
 
 
 
@@ -110,7 +206,31 @@ from playwright.sync_api import sync_playwright
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 STEEL_API_KEY   = os.environ["STEEL_API_KEY"].replace('﻿', '').strip()
+
+
+
+
+
+
+
+
 
 
 
@@ -126,7 +246,23 @@ STEEL_API_KEY   = os.environ["STEEL_API_KEY"].replace('﻿', '').strip()
 
 
 
+
+
+
+
+
+
+
+
 _ctx_raw        = os.environ["STEEL_SESSION_CONTEXT"].replace('﻿', '').strip()
+
+
+
+
+
+
+
+
 
 
 
@@ -142,7 +278,23 @@ print(f"[debug] ctx_raw first 40 chars: {repr(_ctx_raw[:40])}")
 
 
 
+
+
+
+
+
+
+
+
 print(f"[debug] API key first char ord: {ord(STEEL_API_KEY[0]) if STEEL_API_KEY else 'empty'}")
+
+
+
+
+
+
+
+
 
 
 
@@ -158,7 +310,23 @@ SESSION_CONTEXT = json.loads(_ctx_raw)
 
 
 
+
+
+
+
+
+
+
+
 CHANNEL_ID      = os.environ.get("YOUTUBE_CHANNEL_ID", "UCZhxwaicihPtiQg-VAfN14A")
+
+
+
+
+
+
+
+
 
 
 
@@ -182,6 +350,22 @@ COMMUNITY_URL   = "https://www.youtube.com/@learngermanwithoutstress/community"
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 CONTENT_FILE = os.path.join(os.path.dirname(__file__), "..", "data", "content.json")
 
 
@@ -190,7 +374,23 @@ CONTENT_FILE = os.path.join(os.path.dirname(__file__), "..", "data", "content.js
 
 
 
+
+
+
+
+
+
+
+
 GRAMMAR_FILE = os.path.join(os.path.dirname(__file__), "..", "data", "grammar.json")
+
+
+
+
+
+
+
+
 
 
 
@@ -222,7 +422,39 @@ STATE_FILE   = os.path.join(os.path.dirname(__file__), "..", "data", "state.json
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 def load_data():
+
+
+
+
+
+
+
+
 
 
 
@@ -238,7 +470,23 @@ def load_data():
 
 
 
+
+
+
+
+
+
+
+
         vocab_questions = json.load(f)
+
+
+
+
+
+
+
+
 
 
 
@@ -254,7 +502,23 @@ def load_data():
 
 
 
+
+
+
+
+
+
+
+
         grammar_questions = json.load(f)
+
+
+
+
+
+
+
+
 
 
 
@@ -270,7 +534,23 @@ def load_data():
 
 
 
+
+
+
+
+
+
+
+
         with open(STATE_FILE, encoding="utf-8") as f:
+
+
+
+
+
+
+
+
 
 
 
@@ -286,7 +566,23 @@ def load_data():
 
 
 
+
+
+
+
+
+
+
+
     except FileNotFoundError:
+
+
+
+
+
+
+
+
 
 
 
@@ -302,7 +598,23 @@ def load_data():
 
 
 
+
+
+
+
+
+
+
+
     # Migrate legacy state format {"posted": [...]}  ->  {"vocab_posted": [...]}
+
+
+
+
+
+
+
+
 
 
 
@@ -318,7 +630,23 @@ def load_data():
 
 
 
+
+
+
+
+
+
+
+
         state["vocab_posted"] = state.pop("posted")
+
+
+
+
+
+
+
+
 
 
 
@@ -334,7 +662,23 @@ def load_data():
 
 
 
+
+
+
+
+
+
+
+
     state.setdefault("grammar_posted", [])
+
+
+
+
+
+
+
+
 
 
 
@@ -366,7 +710,39 @@ def load_data():
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 def next_question(questions, posted_ids, label):
+
+
+
+
+
+
+
+
 
 
 
@@ -382,7 +758,23 @@ def next_question(questions, posted_ids, label):
 
 
 
+
+
+
+
+
+
+
+
     for q in questions:
+
+
+
+
+
+
+
+
 
 
 
@@ -398,7 +790,23 @@ def next_question(questions, posted_ids, label):
 
 
 
+
+
+
+
+
+
+
+
             return q
+
+
+
+
+
+
+
+
 
 
 
@@ -414,7 +822,23 @@ def next_question(questions, posted_ids, label):
 
 
 
+
+
+
+
+
+
+
+
     posted_ids.clear()
+
+
+
+
+
+
+
+
 
 
 
@@ -446,7 +870,39 @@ def next_question(questions, posted_ids, label):
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 def create_steel_session():
+
+
+
+
+
+
+
+
 
 
 
@@ -462,7 +918,23 @@ def create_steel_session():
 
 
 
+
+
+
+
+
+
+
+
         try:
+
+
+
+
+
+
+
+
 
 
 
@@ -478,7 +950,23 @@ def create_steel_session():
 
 
 
+
+
+
+
+
+
+
+
             r = requests.post(
+
+
+
+
+
+
+
+
 
 
 
@@ -494,7 +982,23 @@ def create_steel_session():
 
 
 
+
+
+
+
+
+
+
+
                 headers={"Steel-Api-Key": STEEL_API_KEY, "Content-Type": "application/json"},
+
+
+
+
+
+
+
+
 
 
 
@@ -510,7 +1014,23 @@ def create_steel_session():
 
 
 
+
+
+
+
+
+
+
+
                 timeout=90,
+
+
+
+
+
+
+
+
 
 
 
@@ -526,7 +1046,23 @@ def create_steel_session():
 
 
 
+
+
+
+
+
+
+
+
             r.raise_for_status()
+
+
+
+
+
+
+
+
 
 
 
@@ -542,7 +1078,23 @@ def create_steel_session():
 
 
 
+
+
+
+
+
+
+
+
             print(f"[debug] Steel API response keys: {list(data.keys())}")
+
+
+
+
+
+
+
+
 
 
 
@@ -558,7 +1110,23 @@ def create_steel_session():
 
 
 
+
+
+
+
+
+
+
+
             print(f"[debug] websocketUrl raw: {data.get('websocketUrl','MISSING')}")
+
+
+
+
+
+
+
+
 
 
 
@@ -574,7 +1142,23 @@ def create_steel_session():
 
 
 
+
+
+
+
+
+
+
+
             raw_ws        = data.get("websocketUrl") or ""
+
+
+
+
+
+
+
+
 
 
 
@@ -590,7 +1174,23 @@ def create_steel_session():
 
 
 
+
+
+
+
+
+
+
+
             sep = "&" if "?" in raw_ws else "?"
+
+
+
+
+
+
+
+
 
 
 
@@ -606,7 +1206,23 @@ def create_steel_session():
 
 
 
+
+
+
+
+
+
+
+
             print(f"Steel session created: {session_id}")
+
+
+
+
+
+
+
+
 
 
 
@@ -622,7 +1238,23 @@ def create_steel_session():
 
 
 
+
+
+
+
+
+
+
+
         except Exception as e:
+
+
+
+
+
+
+
+
 
 
 
@@ -638,6 +1270,14 @@ def create_steel_session():
 
 
 
+
+
+
+
+
+
+
+
             if attempt < 2:
 
 
@@ -646,7 +1286,23 @@ def create_steel_session():
 
 
 
+
+
+
+
+
+
+
+
                 time.sleep(15)
+
+
+
+
+
+
+
+
 
 
 
@@ -678,7 +1334,39 @@ def create_steel_session():
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 def release_steel_session(session_id):
+
+
+
+
+
+
+
+
 
 
 
@@ -694,7 +1382,23 @@ def release_steel_session(session_id):
 
 
 
+
+
+
+
+
+
+
+
         requests.delete(
+
+
+
+
+
+
+
+
 
 
 
@@ -710,7 +1414,23 @@ def release_steel_session(session_id):
 
 
 
+
+
+
+
+
+
+
+
             headers={"Steel-Api-Key": STEEL_API_KEY},
+
+
+
+
+
+
+
+
 
 
 
@@ -726,7 +1446,23 @@ def release_steel_session(session_id):
 
 
 
+
+
+
+
+
+
+
+
         )
+
+
+
+
+
+
+
+
 
 
 
@@ -742,7 +1478,23 @@ def release_steel_session(session_id):
 
 
 
+
+
+
+
+
+
+
+
     except Exception as e:
+
+
+
+
+
+
+
+
 
 
 
@@ -774,7 +1526,39 @@ def release_steel_session(session_id):
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 def page_dump(page, label):
+
+
+
+
+
+
+
+
 
 
 
@@ -790,7 +1574,23 @@ def page_dump(page, label):
 
 
 
+
+
+
+
+
+
+
+
         var btns = Array.from(document.querySelectorAll('button')).slice(0,30).map(function(b){
+
+
+
+
+
+
+
+
 
 
 
@@ -806,7 +1606,23 @@ def page_dump(page, label):
 
 
 
+
+
+
+
+
+
+
+
         }).filter(function(t){return t.length>0;});
+
+
+
+
+
+
+
+
 
 
 
@@ -822,7 +1638,23 @@ def page_dump(page, label):
 
 
 
+
+
+
+
+
+
+
+
             return el.tagName+'['+(el.getAttribute('placeholder')||el.getAttribute('aria-label')||'')+']';
+
+
+
+
+
+
+
+
 
 
 
@@ -838,7 +1670,23 @@ def page_dump(page, label):
 
 
 
+
+
+
+
+
+
+
+
         return {title:document.title, url:location.href, btns:btns, inputs:inputs};
+
+
+
+
+
+
+
+
 
 
 
@@ -854,7 +1702,23 @@ def page_dump(page, label):
 
 
 
+
+
+
+
+
+
+
+
     print(f"[{label}] title={info['title'][:80]}")
+
+
+
+
+
+
+
+
 
 
 
@@ -870,7 +1734,23 @@ def page_dump(page, label):
 
 
 
+
+
+
+
+
+
+
+
     print(f"[{label}] btns={info['btns']}")
+
+
+
+
+
+
+
+
 
 
 
@@ -902,7 +1782,39 @@ def page_dump(page, label):
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 def check_login(page):
+
+
+
+
+
+
+
+
 
 
 
@@ -918,7 +1830,23 @@ def check_login(page):
 
 
 
+
+
+
+
+
+
+
+
     time.sleep(3)
+
+
+
+
+
+
+
+
 
 
 
@@ -928,29 +1856,77 @@ def check_login(page):
 
     js_code = """(function() {
 
+
+
         var signIn = document.querySelector('[aria-label="Sign in"]');
+
+
 
         var avatar = document.querySelector('#avatar-btn') || document.querySelector('yt-img-shadow#avatar');
 
+
+
         return {signedIn: !!avatar, signInBtnFound: !!signIn, title: document.title.substring(0,60)};
+
+
 
     })()"""
 
+
+
     print(f"[login-check-js-len] {len(js_code)}")
+
+
 
     try:
 
+
+
         login_state = page.evaluate(js_code)
+
+
 
         print(f"[login-check] {login_state}")
 
+
+
     except Exception as e:
+
+
 
         print(f"[login-check-ERROR] {type(e).__name__}: {e}")
 
+
+
         print(f"[login-check-js-repr] {repr(js_code)}")
 
+
+
         raise
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -982,7 +1958,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
     """Navigate to Community tab and post a YouTube Quiz."""
+
+
+
+
+
+
+
+
 
 
 
@@ -998,7 +1990,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
     time.sleep(3)
+
+
+
+
+
+
+
+
 
 
 
@@ -1010,7 +2018,15 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
     pa_state = {}
+
+
+
+
 
 
 
@@ -1018,17 +2034,35 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
         pa_state = page.evaluate("""(function(){
+
+
 
             var pa = document.querySelector('#placeholder-area');
 
+
+
             if(!pa) return {found:false};
+
+
 
             var r = pa.getBoundingClientRect();
 
+
+
             return {found:true, w:Math.round(r.width), h:Math.round(r.height)};
 
+
+
         })()""")
+
+
+
+
 
 
 
@@ -1036,7 +2070,15 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
             pa_visible = True
+
+
+
+
 
 
 
@@ -1044,11 +2086,27 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
         time.sleep(1)
 
 
 
+
+
+
+
     print(f"[placeholder-area-poll] visible={pa_visible} after {attempt+1} attempts, state={pa_state}")
+
+
+
+
+
+
+
+
 
 
 
@@ -1072,59 +2130,135 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     # Step 1a: Click the VISIBLE #placeholder-area using Playwright's NATIVE click —
+
+
 
     # not page.evaluate(el.click()). A JS-synthesized click() sets event.isTrusted=false,
 
+
+
     # and YouTube's dialog-open handler appears to silently ignore untrusted clicks.
+
+
 
     # Playwright's locator.click() dispatches a real mouse event through the browser's
 
+
+
     # input pipeline (trusted), which is what actually opens the dialog.
+
+
 
     try:
 
+
+
         page.locator("#placeholder-area").click(timeout=5000)
+
+
 
         clicked_pa = "playwright-native-click ok"
 
+
+
     except Exception as e:
 
+
+
         clicked_pa = f"playwright-native-click failed: {e}"
+
+
 
     print(f"[click-placeholder-area] {clicked_pa}")
 
 
 
+
+
+
+
     # Poll for the dialog to actually open (become visible) after the click
+
+
 
     dialog_open = False
 
+
+
     dialog_state = {}
+
+
 
     for attempt in range(10):
 
+
+
         dialog_state = page.evaluate("""(function(){
+
+
 
             var d = document.querySelector('#unopened-dialog') || document.querySelector('ytd-backstage-post-dialog-renderer');
 
+
+
             if(!d) return {found:false};
+
+
 
             var r = d.getBoundingClientRect();
 
+
+
             return {found:true, tag:d.tagName, id:d.id, w:Math.round(r.width), h:Math.round(r.height)};
+
+
 
         })()""")
 
+
+
         if dialog_state.get("found") and dialog_state.get("w", 0) > 0:
+
+
 
             dialog_open = True
 
+
+
             break
+
+
 
         time.sleep(1)
 
+
+
     print(f"[dialog-open-poll] open={dialog_open} after {attempt+1} attempts, state={dialog_state}")
+
+
+
+
+
+
+
+
 
 
 
@@ -1136,7 +2270,15 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
     composer_html = page.evaluate("""(function(){
+
+
+
+
 
 
 
@@ -1144,7 +2286,15 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
         var all = document.querySelectorAll('*');
+
+
+
+
 
 
 
@@ -1152,7 +2302,15 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
             var t = (all[i].textContent||'').trim();
+
+
+
+
 
 
 
@@ -1160,7 +2318,15 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
         }
+
+
+
+
 
 
 
@@ -1168,7 +2334,15 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
         var container = el;
+
+
+
+
 
 
 
@@ -1176,11 +2350,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
         return container ? container.outerHTML.substring(0, 4000) : 'no container';
 
 
 
+
+
+
+
     })()""")
+
+
+
+
 
 
 
@@ -1192,7 +2378,19 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
     # Step 1b: Click Quiz tab — restrict search to composer area (y < 700, above existing posts)
+
+
+
+
 
 
 
@@ -1200,7 +2398,15 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
         function dQ(root, sel){
+
+
+
+
 
 
 
@@ -1208,7 +2414,15 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
             Array.from(root.querySelectorAll('*')).forEach(function(e){
+
+
+
+
 
 
 
@@ -1216,7 +2430,15 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
             });
+
+
+
+
 
 
 
@@ -1224,7 +2446,15 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
         }
+
+
+
+
 
 
 
@@ -1232,7 +2462,15 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
             var found=[];
+
+
+
+
 
 
 
@@ -1240,7 +2478,15 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
                 var t=Array.from(el.childNodes).filter(function(n){return n.nodeType===3;}).map(function(n){return n.textContent;}).join('');
+
+
+
+
 
 
 
@@ -1248,7 +2494,15 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
                 if(el.shadowRoot) found=found.concat(dText(el.shadowRoot,pat));
+
+
+
+
 
 
 
@@ -1256,11 +2510,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
             return found;
 
 
 
+
+
+
+
         }
+
+
+
+
 
 
 
@@ -1268,7 +2534,15 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
             var r=el.getBoundingClientRect();
+
+
+
+
 
 
 
@@ -1276,7 +2550,15 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
         });
+
+
+
+
 
 
 
@@ -1284,7 +2566,15 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
         var byText = dText(document, /^quiz$/i).filter(function(el){
+
+
+
+
 
 
 
@@ -1292,11 +2582,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
             return r.width>0 && r.height>0 && r.y < 700;
 
 
 
+
+
+
+
         });
+
+
+
+
 
 
 
@@ -1304,7 +2606,15 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
             var t = byText[0].closest('[role="tab"],button,[tabindex]') || byText[0];
+
+
+
+
 
 
 
@@ -1312,7 +2622,15 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
             return 'text-composer: y='+Math.round(t.getBoundingClientRect().y);
+
+
+
+
 
 
 
@@ -1320,11 +2638,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
         return 'not-found';
 
 
 
+
+
+
+
     })()""")
+
+
+
+
 
 
 
@@ -1332,36 +2662,85 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
     time.sleep(2)
+
+
+
+
 
 
 
     page_dump(page, "after-quiz-tab")
 
+
+
     # HARD GATE: verify the real Quiz composer actually opened before filling/posting
+
     # anything. Previously, if the Quiz tab click silently failed, the script fell
+
     # through to the plain community composer and posted the question as bare text
+
     # with NO answer options and NO correct answer marked. Never do that again —
+
     # if the quiz form isn't genuinely open, abort this question entirely.
+
     quiz_form_present = page.evaluate("""(function(){
+
         var hasAnswerField = Array.from(document.querySelectorAll('textarea')).some(function(t){
+
             var p = (t.getAttribute('placeholder')||'').toLowerCase();
+
             if (!p.includes('answer')) return false;
+
             var r = t.getBoundingClientRect();
+
             return r.width > 0 && r.height > 0;
+
         });
+
         var hasMarkCorrectBtn = Array.from(document.querySelectorAll('[aria-label="Mark as correct answer"]')).some(function(b){
+
             var r = b.getBoundingClientRect();
+
             return r.width > 0 && r.height > 0;
+
         });
+
         return hasAnswerField || hasMarkCorrectBtn;
+
     })()""")
+
     print(f"[quiz-form-gate] present={quiz_form_present}")
+
     if not quiz_form_present:
+
         raise RuntimeError(
+
             "Quiz composer did not open (no visible answer fields / mark-correct buttons found). "
+
             "Aborting this question — refusing to post as a plain-text fallback."
+
         )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1385,7 +2764,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
     options = question["options"]
+
+
+
+
+
+
+
+
 
 
 
@@ -1409,7 +2804,31 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     # Step 2: Fill the question field (the community ask box, NOT the search bar)
+
+
+
+
+
+
+
+
 
 
 
@@ -1425,7 +2844,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
     # "Ask your community..." or similar — we target it by placeholder, avoiding the search textarea
+
+
+
+
+
+
+
+
 
 
 
@@ -1441,7 +2876,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
         // Target the community post contenteditable, not the search bar
+
+
+
+
+
+
+
+
 
 
 
@@ -1457,7 +2908,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
                      document.querySelector('[contenteditable][placeholder*="ask" i]') ||
+
+
+
+
+
+
+
+
 
 
 
@@ -1473,7 +2940,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
                      document.querySelector('#contenteditable-root');
+
+
+
+
+
+
+
+
 
 
 
@@ -1489,7 +2972,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
             qField.focus();
+
+
+
+
+
+
+
+
 
 
 
@@ -1505,7 +3004,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
             document.execCommand('insertText', false, {json.dumps(q_text)});
+
+
+
+
+
+
+
+
 
 
 
@@ -1521,7 +3036,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
         }}
+
+
+
+
+
+
+
+
 
 
 
@@ -1537,7 +3068,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
     }})()""")
+
+
+
+
+
+
+
+
 
 
 
@@ -1553,7 +3100,31 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
     time.sleep(1)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1577,7 +3148,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
         return """
+
+
+
+
+
+
+
+
 
 
 
@@ -1593,7 +3180,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
             return Array.from(document.querySelectorAll('textarea')).filter(function(t) {
+
+
+
+
+
+
+
+
 
 
 
@@ -1609,7 +3212,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
                 if (!p.includes('answer')) return false;
+
+
+
+
+
+
+
+
 
 
 
@@ -1625,6 +3244,14 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
                 return r.width > 0 && r.height > 0;
 
 
@@ -1633,7 +3260,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
             });
+
+
+
+
+
+
+
+
 
 
 
@@ -1657,7 +3300,31 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     # Step 3: Fill answer options — target visible TEXTAREA[Answer N] (not hidden poll Option fields)
+
+
+
+
+
+
+
+
 
 
 
@@ -1673,7 +3340,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
         {visible_answer_textareas_js()}
+
+
+
+
+
+
+
+
 
 
 
@@ -1689,7 +3372,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
         var tas = visibleAnswerTextareas();
+
+
+
+
+
+
+
+
 
 
 
@@ -1705,7 +3404,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
         for (var i = 0; i < Math.min(2, tas.length); i++) {{
+
+
+
+
+
+
+
+
 
 
 
@@ -1721,7 +3436,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
             document.execCommand('selectAll', false, null);
+
+
+
+
+
+
+
+
 
 
 
@@ -1737,7 +3468,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
             filled.push(opts[i]);
+
+
+
+
+
+
+
+
 
 
 
@@ -1753,7 +3500,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
         return filled;
+
+
+
+
+
+
+
+
 
 
 
@@ -1769,6 +3532,14 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
     print(f"[fill-opts-1-2] {filled_opts}")
 
 
@@ -1777,7 +3548,31 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
     time.sleep(1)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1801,7 +3596,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
     for extra_idx in range(2, 4):
+
+
+
+
+
+
+
+
 
 
 
@@ -1817,7 +3628,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
             var btns = Array.from(document.querySelectorAll('button')).filter(function(b) {
+
+
+
+
+
+
+
+
 
 
 
@@ -1833,7 +3660,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
                 return r.width > 0 && r.height > 0;
+
+
+
+
+
+
+
+
 
 
 
@@ -1849,7 +3692,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
             var b = btns.find(function(b) { return (b.textContent||'').trim().toLowerCase() === 'add answer'; });
+
+
+
+
+
+
+
+
 
 
 
@@ -1865,7 +3724,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
             if (b) { b.click(); return b.textContent.trim(); }
+
+
+
+
+
+
+
+
 
 
 
@@ -1881,7 +3756,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
         })()""")
+
+
+
+
+
+
+
+
 
 
 
@@ -1897,7 +3788,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
         time.sleep(1.5)
+
+
+
+
+
+
+
+
 
 
 
@@ -1913,7 +3820,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
             filled = page.evaluate(f"""(function() {{
+
+
+
+
+
+
+
+
 
 
 
@@ -1929,7 +3852,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
                 var opts = {json.dumps(options)};
+
+
+
+
+
+
+
+
 
 
 
@@ -1945,7 +3884,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
                 var t = tas[{extra_idx}];
+
+
+
+
+
+
+
+
 
 
 
@@ -1961,7 +3916,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
                     t.focus();
+
+
+
+
+
+
+
+
 
 
 
@@ -1977,7 +3948,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
                     document.execCommand('insertText', false, opts[{extra_idx}]);
+
+
+
+
+
+
+
+
 
 
 
@@ -1993,7 +3980,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
                 }}
+
+
+
+
+
+
+
+
 
 
 
@@ -2009,6 +4012,14 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
             }})()""")
 
 
@@ -2017,7 +4028,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
             print(f"[fill-opt-{extra_idx}] {filled}")
+
+
+
+
+
+
+
+
 
 
 
@@ -2041,7 +4068,31 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     # Step 5: Mark the correct answer using aria-label (confirmed working selector)
+
+
+
+
+
+
+
+
 
 
 
@@ -2057,7 +4108,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
         var btns = Array.from(document.querySelectorAll('[aria-label="Mark as correct answer"]'));
+
+
+
+
+
+
+
+
 
 
 
@@ -2073,7 +4140,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
             btns[{ans_idx}].click();
+
+
+
+
+
+
+
+
 
 
 
@@ -2089,7 +4172,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
         }}
+
+
+
+
+
+
+
+
 
 
 
@@ -2105,6 +4204,14 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
     }})()""")
 
 
@@ -2113,7 +4220,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
     print(f"[mark-correct] {marked}")
+
+
+
+
+
+
+
+
 
 
 
@@ -2137,7 +4260,31 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     # Verify the button was found; retry once if not found yet
+
+
+
+
+
+
+
+
 
 
 
@@ -2153,7 +4300,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
         var btns = Array.from(document.querySelectorAll('[aria-label="Mark as correct answer"]'));
+
+
+
+
+
+
+
+
 
 
 
@@ -2169,7 +4332,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
     }})()""")
+
+
+
+
+
+
+
+
 
 
 
@@ -2185,7 +4364,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
     if checked != "true":
+
+
+
+
+
+
+
+
 
 
 
@@ -2201,7 +4396,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
             var btns = Array.from(document.querySelectorAll('[aria-label="Mark as correct answer"]'));
+
+
+
+
+
+
+
+
 
 
 
@@ -2217,7 +4428,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
         }})()""")
+
+
+
+
+
+
+
+
 
 
 
@@ -2241,7 +4468,31 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     # Step 5b: Fill the "Explain why this is correct" field — YouTube only reveals/keeps ONE such
+
+
+
+
+
+
+
+
 
 
 
@@ -2257,7 +4508,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
     # This field renders with white-space:normal (YouTube's own CSS) which collapses ANY newline —
+
+
+
+
+
+
+
+
 
 
 
@@ -2273,7 +4540,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
     # aren't achievable here. Use numbered prefixes instead so the text still reads as distinct,
+
+
+
+
+
+
+
+
 
 
 
@@ -2289,7 +4572,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
     explanations = question.get("explanations")
+
+
+
+
+
+
+
+
 
 
 
@@ -2305,7 +4604,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
         numbered = [f"{i+1}) {exp}" for i, exp in enumerate(
+
+
+
+
+
+
+
+
 
 
 
@@ -2321,7 +4636,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
         )]
+
+
+
+
+
+
+
+
 
 
 
@@ -2337,7 +4668,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
         for part in numbered[1:]:
+
+
+
+
+
+
+
+
 
 
 
@@ -2353,6 +4700,14 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
             if len(candidate) > 495:
 
 
@@ -2361,7 +4716,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
                 break
+
+
+
+
+
+
+
+
 
 
 
@@ -2385,7 +4756,31 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         explain_locator = page.locator('textarea[placeholder="Explain why this is correct (optional)"]')
+
+
+
+
+
+
+
+
 
 
 
@@ -2401,7 +4796,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
         vcount = visible_explain.count()
+
+
+
+
+
+
+
+
 
 
 
@@ -2417,7 +4828,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
         if vcount > 0:
+
+
+
+
+
+
+
+
 
 
 
@@ -2433,7 +4860,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
                 visible_explain.first.fill(combined[:500], timeout=5000)
+
+
+
+
+
+
+
+
 
 
 
@@ -2449,7 +4892,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
             except Exception as e:
+
+
+
+
+
+
+
+
 
 
 
@@ -2465,7 +4924,31 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
         print(f"[fill-explanation] visible_count={vcount} result={filled_explain}")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -2497,7 +4980,31 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     # Step 6: Wait for Post button to be enabled (poll up to 5s), then click
+
+
+
+
+
+
+
+
 
 
 
@@ -2513,7 +5020,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
     time.sleep(0.5)
+
+
+
+
+
+
+
+
 
 
 
@@ -2529,7 +5052,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
     for _ in range(10):
+
+
+
+
+
+
+
+
 
 
 
@@ -2545,7 +5084,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
             var btns = Array.from(document.querySelectorAll('button'));
+
+
+
+
+
+
+
+
 
 
 
@@ -2561,7 +5116,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
             return b ? !b.disabled : false;
+
+
+
+
+
+
+
+
 
 
 
@@ -2577,7 +5148,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
         if post_enabled:
+
+
+
+
+
+
+
+
 
 
 
@@ -2593,7 +5180,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
         time.sleep(0.5)
+
+
+
+
+
+
+
+
 
 
 
@@ -2617,7 +5220,31 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     clicked_post = page.evaluate("""(function() {
+
+
+
+
+
+
+
+
 
 
 
@@ -2633,7 +5260,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
         var b = btns.find(function(b) {
+
+
+
+
+
+
+
+
 
 
 
@@ -2649,7 +5292,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
             return t === 'Post' && !b.disabled;
+
+
+
+
+
+
+
+
 
 
 
@@ -2665,7 +5324,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
         if (b) { b.click(); return 'Post clicked'; }
+
+
+
+
+
+
+
+
 
 
 
@@ -2681,7 +5356,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
     })()""")
+
+
+
+
+
+
+
+
 
 
 
@@ -2697,7 +5388,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
     time.sleep(4)
+
+
+
+
+
+
+
+
 
 
 
@@ -2721,7 +5428,31 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     # Step 7: Verify submission — the composer resets to its blank/placeholder state on success
+
+
+
+
+
+
+
+
 
 
 
@@ -2737,7 +5468,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
     for _ in range(6):
+
+
+
+
+
+
+
+
 
 
 
@@ -2753,7 +5500,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
             var root = document.querySelector('#contenteditable-root');
+
+
+
+
+
+
+
+
 
 
 
@@ -2769,7 +5532,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
             return { rootText: text };
+
+
+
+
+
+
+
+
 
 
 
@@ -2785,7 +5564,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
         if not reset_state["rootText"]:
+
+
+
+
+
+
+
+
 
 
 
@@ -2801,7 +5596,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
             break
+
+
+
+
+
+
+
+
 
 
 
@@ -2817,6 +5628,14 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
     print(f"[submit-verify] submitted={submitted}")
 
 
@@ -2825,7 +5644,23 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
     if not submitted:
+
+
+
+
+
+
+
+
 
 
 
@@ -2857,7 +5692,39 @@ def post_quiz(page, question):
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 def main():
+
+
+
+
+
+
+
+
 
 
 
@@ -2873,7 +5740,23 @@ def main():
 
 
 
+
+
+
+
+
+
+
+
     vocab_q   = next_question(vocab_questions, state["vocab_posted"], "vocab")
+
+
+
+
+
+
+
+
 
 
 
@@ -2889,7 +5772,23 @@ def main():
 
 
 
+
+
+
+
+
+
+
+
     print(f"Next vocab question: {vocab_q['id']} — {vocab_q['question']}")
+
+
+
+
+
+
+
+
 
 
 
@@ -2913,7 +5812,31 @@ def main():
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     session_id, ws_url = create_steel_session()
+
+
+
+
+
+
+
+
 
 
 
@@ -2929,7 +5852,23 @@ def main():
 
 
 
+
+
+
+
+
+
+
+
         with sync_playwright() as pw:
+
+
+
+
+
+
+
+
 
 
 
@@ -2945,7 +5884,23 @@ def main():
 
 
 
+
+
+
+
+
+
+
+
             ctx     = browser.contexts[0] if browser.contexts else browser.new_context()
+
+
+
+
+
+
+
+
 
 
 
@@ -2955,25 +5910,54 @@ def main():
 
             page    = ctx.pages[0] if ctx.pages else ctx.new_page()
 
+            page.on("console", lambda msg: print(f"[BROWSER-CONSOLE-{msg.type}] {msg.text}"[:500]))
+            page.on("pageerror", lambda exc: print(f"[BROWSER-PAGEERROR] {exc}"[:500]))
+
+            ua = page.evaluate("navigator.userAgent")
+            print(f"[user-agent] {ua}")
+
+
+
+
+
+
 
 
             _orig_evaluate = page.evaluate
 
+
+
             def _diag_evaluate(expr, *args, **kwargs):
+
+
 
                 try:
 
+
+
                     return _orig_evaluate(expr, *args, **kwargs)
+
+
 
                 except Exception as e:
 
+
+
                     print(f"[EVAL-ERROR] {type(e).__name__}: {e}")
+
+
 
                     print(f"[EVAL-ERROR-len] {len(expr) if isinstance(expr, str) else 'n/a'}")
 
+
+
                     print(f"[EVAL-ERROR-repr] {repr(expr)[:2000]}")
 
+
+
                     raise
+
+
 
             page.evaluate = _diag_evaluate
 
@@ -2991,7 +5975,27 @@ def main():
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
             try:
+
+
+
+
 
 
 
@@ -2999,11 +6003,23 @@ def main():
 
 
 
+
+
+
+
                 print("[viewport] set to 1920x1080")
 
 
 
+
+
+
+
             except Exception as e:
+
+
+
+
 
 
 
@@ -3015,59 +6031,121 @@ def main():
 
 
 
+
+
+
+
+
+
+
+
             check_login(page)
+
+
+
+
 
 
 
             # Minimal evaluate() sanity tests to isolate what Steel.dev's remote
 
+
+
             # browser can/cannot execute via CDP
 
+
+
             try:
+
+
 
                 r1 = page.evaluate("1+1")
 
+
+
                 print(f"[test-1-simple-math] {r1}")
 
+
+
             except Exception as e:
+
+
 
                 print(f"[test-1-ERROR] {e}")
 
+
+
             try:
+
+
 
                 r2 = page.evaluate("(function(){ return 2+2; })()")
 
+
+
                 print(f"[test-2-function-braces] {r2}")
 
+
+
             except Exception as e:
+
+
 
                 print(f"[test-2-ERROR] {e}")
 
+
+
             try:
+
+
 
                 r3 = page.evaluate("""(function(){
 
+
+
                     var x = 1;
+
+
 
                     if (x) { x = 2; }
 
+
+
                     return x;
+
+
 
                 })()""")
 
+
+
                 print(f"[test-3-multiline-braces] {r3}")
 
+
+
             except Exception as e:
+
+
 
                 print(f"[test-3-ERROR] {e}")
 
+
+
             try:
+
+
 
                 r4 = page.evaluate("(function(){ var el = document.querySelector('div'); return !!el; })()")
 
+
+
                 print(f"[test-4-quotes-in-braces] {r4}")
 
+
+
             except Exception as e:
+
+
 
                 print(f"[test-4-ERROR] {e}")
 
@@ -3085,11 +6163,32 @@ def main():
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
             vocab_ok = False
+
             try:
+
                 post_quiz(page, vocab_q)
+
                 vocab_ok = True
+
             except Exception as e:
+
                 print(f"[vocab-post-FAILED] {type(e).__name__}: {e}")
 
 
@@ -3098,10 +6197,22 @@ def main():
 
 
 
+
+
+
+
+
+
+
+
             if vocab_ok:
+
                 state["vocab_posted"].append(vocab_q["id"])
+
                 with open(STATE_FILE, "w", encoding="utf-8") as f:
+
                     json.dump(state, f, indent=2)
+
                 print(f"Vocab state saved. Total posted: {len(state['vocab_posted'])}")
 
 
@@ -3118,21 +6229,67 @@ def main():
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
             grammar_ok = False
+
             try:
+
                 post_quiz(page, grammar_q)
+
                 grammar_ok = True
+
             except Exception as e:
+
                 print(f"[grammar-post-FAILED] {type(e).__name__}: {e}")
 
+
+
             if grammar_ok:
+
                 state["grammar_posted"].append(grammar_q["id"])
+
                 with open(STATE_FILE, "w", encoding="utf-8") as f:
+
                     json.dump(state, f, indent=2)
+
                 print(f"Grammar state saved. Total posted: {len(state['grammar_posted'])}")
 
+
+
             if not (vocab_ok or grammar_ok):
+
                 raise RuntimeError("Both vocab and grammar quiz posts failed this run")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -3156,7 +6313,23 @@ def main():
 
 
 
+
+
+
+
+
+
+
+
     finally:
+
+
+
+
+
+
+
+
 
 
 
@@ -3188,6 +6361,30 @@ def main():
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 if __name__ == "__main__":
 
 
@@ -3196,7 +6393,31 @@ if __name__ == "__main__":
 
 
 
+
+
+
+
+
+
+
+
     main()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
