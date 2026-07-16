@@ -222,41 +222,28 @@ def post_quiz(page, question):
             print(f"[fill-opt-{extra_idx}] {filled}")
             time.sleep(0.5)
 
-    # Step 5: Mark the correct answer (click the inner button inside the [role="radio"] wrapper)
+    # Step 5: Mark the correct answer using aria-label (confirmed working selector)
     marked = page.evaluate(f"""(function() {{
-        var radios = Array.from(document.querySelectorAll('[role="radio"]')).filter(function(r) {{
-            var l = (r.getAttribute('aria-label')||'').toLowerCase();
-            return l.includes('correct') || l.includes('mark');
-        }});
-        if (radios[{ans_idx}]) {{
-            var target = radios[{ans_idx}].querySelector('button') || radios[{ans_idx}];
-            target.click();
-            return 'clicked radio ' + {ans_idx};
+        var btns = Array.from(document.querySelectorAll('[aria-label="Mark as correct answer"]'));
+        if (btns[{ans_idx}]) {{
+            btns[{ans_idx}].click();
+            return 'clicked Mark-as-correct btn ' + {ans_idx} + ' of ' + btns.length;
         }}
-        return 'none found (count=' + radios.length + ')';
+        return 'btn not found (count=' + btns.length + ')';
     }})()""")
     print(f"[mark-correct] {marked}")
     time.sleep(1)
 
-    # Verify the radio actually flipped to checked; retry once if not
+    # Verify the button was found; retry once if not found yet
     checked = page.evaluate(f"""(function() {{
-        var radios = Array.from(document.querySelectorAll('[role="radio"]')).filter(function(r) {{
-            var l = (r.getAttribute('aria-label')||'').toLowerCase();
-            return l.includes('correct') || l.includes('mark');
-        }});
-        return radios[{ans_idx}] ? radios[{ans_idx}].getAttribute('aria-checked') : 'no-radio';
+        var btns = Array.from(document.querySelectorAll('[aria-label="Mark as correct answer"]'));
+        return 'btn-count=' + btns.length + (btns[{ans_idx}] ? ' found' : ' missing');
     }})()""")
     print(f"[mark-correct-verify] aria-checked={checked}")
     if checked != "true":
         page.evaluate(f"""(function() {{
-            var radios = Array.from(document.querySelectorAll('[role="radio"]')).filter(function(r) {{
-                var l = (r.getAttribute('aria-label')||'').toLowerCase();
-                return l.includes('correct') || l.includes('mark');
-            }});
-            if (radios[{ans_idx}]) {{
-                var target = radios[{ans_idx}].querySelector('button') || radios[{ans_idx}];
-                target.click();
-            }}
+            var btns = Array.from(document.querySelectorAll('[aria-label="Mark as correct answer"]'));
+            if (btns[{ans_idx}]) btns[{ans_idx}].click();
         }})()""")
         time.sleep(1)
 
@@ -372,3 +359,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
