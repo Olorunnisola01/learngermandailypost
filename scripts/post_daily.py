@@ -524,37 +524,26 @@ def post_quiz(page, question):
         if(el){ el.click(); el.focus(); }
     })()""")
     print("[expand-composer] done")
-    time.sleep(3)
+    time.sleep(2)
 
-    # Debug: find all [aria-label="Quiz"] elements and their context
-    quiz_context = page.evaluate("""(function(){
-        function dQ(root, sel){
-            var r=Array.from(root.querySelectorAll(sel));
-            Array.from(root.querySelectorAll('*')).forEach(function(e){
-                if(e.shadowRoot) r=r.concat(dQ(e.shadowRoot,sel));
-            });
-            return r;
-        }
-        var els = dQ(document, '[aria-label*="Quiz" i]');
-        return els.map(function(el){
-            var r=el.getBoundingClientRect();
-            var p=el.parentElement;
-            return {
-                tag:el.tagName,
-                label:el.getAttribute('aria-label'),
-                role:el.getAttribute('role')||'',
-                x:Math.round(r.x), y:Math.round(r.y),
-                w:Math.round(r.width), h:Math.round(r.height),
-                visible:r.width>0&&r.height>0,
-                parentTag:p?p.tagName:'',
-                parentId:p?p.id:''
-            };
+    # Step 1b: Click the "Image" button — in the new YouTube UI this opens a picker
+    # with Image/Quiz/Poll options instead of having separate tabs
+    clicked_image = page.evaluate("""(function(){
+        var btns = Array.from(document.querySelectorAll('button'));
+        var b = btns.find(function(b){
+            var t=(b.textContent||'').trim();
+            return t==='Image' || (b.getAttribute('aria-label')||'').toLowerCase()==='image';
         });
+        if(b){ b.click(); return 'clicked Image btn at y='+Math.round(b.getBoundingClientRect().y); }
+        return 'Image btn not found';
     })()""")
-    print(f"[quiz-context] {quiz_context}")
+    print(f"[click-image-btn] {clicked_image}")
+    time.sleep(2)
 
-    # Step 1b: Click the Quiz tab — target the one NEAR THE COMPOSER (y < 500 from top)
-    # and that is visible and looks like a tab (not an answer option)
+    # Dump what appeared after clicking Image
+    page_dump(page, "after-image-click")
+
+    # Step 1c: Now look for Quiz option in the picker that opened
     clicked_quiz = page.evaluate("""(function(){
         function dQ(root, sel){
             var r=Array.from(root.querySelectorAll(sel));
@@ -563,29 +552,40 @@ def post_quiz(page, question):
             });
             return r;
         }
-        var els = dQ(document, '[aria-label*="Quiz" i]');
-        // Filter to elements near the top of the page (composer area)
-        var composerEls = els.filter(function(el){
-            var r=el.getBoundingClientRect();
-            return r.width>0 && r.height>0 && r.y < 500;
-        });
-        // Prefer "tab"-role elements or tp-yt-paper-tab
-        var tabEl = composerEls.find(function(el){
-            return el.getAttribute('role')==='tab' || el.tagName.toLowerCase()==='tp-yt-paper-tab';
-        }) || composerEls[0];
-        if(tabEl){
-            tabEl.click();
-            var r=tabEl.getBoundingClientRect();
-            return 'clicked y='+Math.round(r.y)+' tag='+tabEl.tagName+' label='+tabEl.getAttribute('aria-label');
+        function dText(root,pat){
+            var found=[];
+            Array.from(root.querySelectorAll('*')).forEach(function(el){
+                var t=Array.from(el.childNodes).filter(function(n){return n.nodeType===3;}).map(function(n){return n.textContent;}).join('');
+                if(pat.test(t.trim())) found.push(el);
+                if(el.shadowRoot) found=found.concat(dText(el.shadowRoot,pat));
+            });
+            return found;
         }
-        // Log all found elements
-        return 'not-found count='+els.length+' all='+JSON.stringify(els.map(function(el){
-            var r=el.getBoundingClientRect();
-            return {y:Math.round(r.y),tag:el.tagName,label:el.getAttribute('aria-label'),role:el.getAttribute('role')};
-        }));
+        // All visible interactive elements to find new ones after Image click
+        var allBtns = Array.from(document.querySelectorAll('button,[role="menuitem"],[role="option"],[role="tab"]'));
+        var visible = allBtns.filter(function(el){var r=el.getBoundingClientRect();return r.width>0&&r.height>0;});
+        var labels = visible.map(function(el){return (el.textContent||'').trim().substring(0,25)+'|'+(el.getAttribute('aria-label')||'');});
+        // Try to click Quiz in picker
+        var quizBtn = visible.find(function(el){
+            var t=(el.textContent||'').trim().toLowerCase();
+            var l=(el.getAttribute('aria-label')||'').toLowerCase();
+            return t==='quiz' || l==='quiz' || l.includes('quiz') || t.includes('quiz');
+        });
+        if(quizBtn){
+            quizBtn.click();
+            return 'clicked quiz picker: '+quizBtn.tagName+'['+quizBtn.getAttribute('aria-label')+']';
+        }
+        // Also try deep shadow search for quiz-like elements
+        var deep = dText(document, /quiz/i);
+        var deepFiltered = deep.filter(function(el){var r=el.getBoundingClientRect();return r.width>0&&r.height>0&&el.tagName!=='YTD-BACKSTAGE-QUIZ-RENDERER';});
+        if(deepFiltered[0]){
+            deepFiltered[0].click();
+            return 'deep-text-quiz: '+deepFiltered[0].tagName+'['+deepFiltered[0].getAttribute('aria-label')+']';
+        }
+        return 'quiz-not-in-picker|btns='+JSON.stringify(labels.slice(0,30));
     })()""")
     print(f"[click-quiz-tab] {clicked_quiz}")
-    time.sleep(3)
+    time.sleep(2)
     page_dump(page, "after-quiz-tab")
 
 
