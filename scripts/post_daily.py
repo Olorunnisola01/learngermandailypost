@@ -520,91 +520,72 @@ def post_quiz(page, question):
 
     # Step 1a: Expand the community composer
     page.evaluate("""(function(){
-        var el = document.querySelector('#contenteditable-root') ||
-                 document.querySelector('[placeholder]');
+        var el = document.querySelector('#contenteditable-root');
         if(el){ el.click(); el.focus(); }
     })()""")
     print("[expand-composer] done")
     time.sleep(3)
 
-    # Step 1b: Click Quiz tab using Playwright locators (pierce shadow DOM)
-    clicked_quiz = None
+    # Debug: find all [aria-label="Quiz"] elements and their context
+    quiz_context = page.evaluate("""(function(){
+        function dQ(root, sel){
+            var r=Array.from(root.querySelectorAll(sel));
+            Array.from(root.querySelectorAll('*')).forEach(function(e){
+                if(e.shadowRoot) r=r.concat(dQ(e.shadowRoot,sel));
+            });
+            return r;
+        }
+        var els = dQ(document, '[aria-label*="Quiz" i]');
+        return els.map(function(el){
+            var r=el.getBoundingClientRect();
+            var p=el.parentElement;
+            return {
+                tag:el.tagName,
+                label:el.getAttribute('aria-label'),
+                role:el.getAttribute('role')||'',
+                x:Math.round(r.x), y:Math.round(r.y),
+                w:Math.round(r.width), h:Math.round(r.height),
+                visible:r.width>0&&r.height>0,
+                parentTag:p?p.tagName:'',
+                parentId:p?p.id:''
+            };
+        });
+    })()""")
+    print(f"[quiz-context] {quiz_context}")
 
-    # Try 1: Playwright text locator — pierces shadow DOM
-    try:
-        quiz_locator = page.get_by_text("Quiz", exact=True)
-        count = quiz_locator.count()
-        print(f"[quiz-playwright-count] {count}")
-        if count > 0:
-            for i in range(count):
-                try:
-                    el = quiz_locator.nth(i)
-                    if el.is_visible(timeout=1000):
-                        el.click(timeout=3000)
-                        clicked_quiz = f"playwright nth={i}"
-                        break
-                except Exception:
-                    pass
-    except Exception as e:
-        print(f"[quiz-playwright-err] {e}")
-
-    # Try 2: role=tab with name Quiz
-    if not clicked_quiz:
-        try:
-            tab = page.get_by_role("tab", name="Quiz")
-            if tab.count() > 0 and tab.first.is_visible(timeout=1000):
-                tab.first.click(timeout=3000)
-                clicked_quiz = "playwright-role-tab"
-        except Exception as e:
-            print(f"[quiz-role-tab-err] {e}")
-
-    # Try 3: paper-tab element containing Quiz text
-    if not clicked_quiz:
-        try:
-            el = page.locator("tp-yt-paper-tab:has-text('Quiz')")
-            if el.count() > 0 and el.first.is_visible(timeout=1000):
-                el.first.click(timeout=3000)
-                clicked_quiz = "playwright-paper-tab"
-        except Exception as e:
-            print(f"[quiz-paper-tab-err] {e}")
-
-    # Try 4: JavaScript deep shadow DOM search
-    if not clicked_quiz:
-        result = page.evaluate("""(function(){
-            function dQ(root, sel){
-                var r=Array.from(root.querySelectorAll(sel));
-                Array.from(root.querySelectorAll('*')).forEach(function(e){
-                    if(e.shadowRoot) r=r.concat(dQ(e.shadowRoot,sel));
-                });
-                return r;
-            }
-            function dText(root,pat){
-                var found=[];
-                Array.from(root.querySelectorAll('*')).forEach(function(el){
-                    var t=Array.from(el.childNodes).filter(function(n){return n.nodeType===3;}).map(function(n){return n.textContent;}).join('');
-                    if(pat.test(t.trim())) found.push(el);
-                    if(el.shadowRoot) found=found.concat(dText(el.shadowRoot,pat));
-                });
-                return found;
-            }
-            var all=dQ(document,'button,[role="tab"],tp-yt-paper-tab,[role="button"]');
-            var info=all.filter(function(el){var r=el.getBoundingClientRect();return r.width>0&&r.height>0;}).map(function(el){return (el.textContent||'').trim().substring(0,25)+'|'+(el.getAttribute('aria-label')||'');}).filter(function(s){return s.trim().length>1;});
-            var byText=dText(document,/^quiz$/i);
-            if(byText.length>0){
-                var t=byText[0].closest('[role="tab"],button,[tabindex]')||byText[0];
-                t.click();
-                return 'deep-text:'+t.tagName;
-            }
-            var byLabel=dQ(document,'[aria-label*="quiz" i]');
-            if(byLabel.length>0){byLabel[0].click();return 'deep-label:'+byLabel[0].getAttribute('aria-label');}
-            return 'not-found|interactive='+JSON.stringify(info.slice(0,25));
-        })()""")
-        print(f"[quiz-js-deep] {result}")
-        if "deep-text" in str(result) or "deep-label" in str(result):
-            clicked_quiz = f"js-deep: {result}"
-
+    # Step 1b: Click the Quiz tab — target the one NEAR THE COMPOSER (y < 500 from top)
+    # and that is visible and looks like a tab (not an answer option)
+    clicked_quiz = page.evaluate("""(function(){
+        function dQ(root, sel){
+            var r=Array.from(root.querySelectorAll(sel));
+            Array.from(root.querySelectorAll('*')).forEach(function(e){
+                if(e.shadowRoot) r=r.concat(dQ(e.shadowRoot,sel));
+            });
+            return r;
+        }
+        var els = dQ(document, '[aria-label*="Quiz" i]');
+        // Filter to elements near the top of the page (composer area)
+        var composerEls = els.filter(function(el){
+            var r=el.getBoundingClientRect();
+            return r.width>0 && r.height>0 && r.y < 500;
+        });
+        // Prefer "tab"-role elements or tp-yt-paper-tab
+        var tabEl = composerEls.find(function(el){
+            return el.getAttribute('role')==='tab' || el.tagName.toLowerCase()==='tp-yt-paper-tab';
+        }) || composerEls[0];
+        if(tabEl){
+            tabEl.click();
+            var r=tabEl.getBoundingClientRect();
+            return 'clicked y='+Math.round(r.y)+' tag='+tabEl.tagName+' label='+tabEl.getAttribute('aria-label');
+        }
+        // Log all found elements
+        return 'not-found count='+els.length+' all='+JSON.stringify(els.map(function(el){
+            var r=el.getBoundingClientRect();
+            return {y:Math.round(r.y),tag:el.tagName,label:el.getAttribute('aria-label'),role:el.getAttribute('role')};
+        }));
+    })()""")
     print(f"[click-quiz-tab] {clicked_quiz}")
-    time.sleep(2)
+    time.sleep(3)
     page_dump(page, "after-quiz-tab")
 
 
