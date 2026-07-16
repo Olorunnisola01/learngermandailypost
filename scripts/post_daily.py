@@ -1444,6 +1444,17 @@ def main():
 
             page    = ctx.pages[0] if ctx.pages else ctx.new_page()
 
+            _orig_evaluate = page.evaluate
+            def _diag_evaluate(expr, *args, **kwargs):
+                try:
+                    return _orig_evaluate(expr, *args, **kwargs)
+                except Exception as e:
+                    print(f"[EVAL-ERROR] {type(e).__name__}: {e}")
+                    print(f"[EVAL-ERROR-len] {len(expr) if isinstance(expr, str) else 'n/a'}")
+                    print(f"[EVAL-ERROR-repr] {repr(expr)[:2000]}")
+                    raise
+            page.evaluate = _diag_evaluate
+
 
 
 
