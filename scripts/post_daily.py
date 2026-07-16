@@ -518,32 +518,22 @@ def post_quiz(page, question):
 
 
 
-    # Step 1a: Expand the community composer
-    page.evaluate("""(function(){
-        var el = document.querySelector('#contenteditable-root');
-        if(el){ el.click(); el.focus(); }
-    })()""")
-    print("[expand-composer] done")
-    time.sleep(2)
-
-    # Step 1b: Click the "Image" button — in the new YouTube UI this opens a picker
-    # with Image/Quiz/Poll options instead of having separate tabs
-    clicked_image = page.evaluate("""(function(){
+    # Step 1a: Click the "Create" button in the top nav to open the post creation modal
+    clicked_create = page.evaluate("""(function(){
         var btns = Array.from(document.querySelectorAll('button'));
         var b = btns.find(function(b){
             var t=(b.textContent||'').trim();
-            return t==='Image' || (b.getAttribute('aria-label')||'').toLowerCase()==='image';
+            var l=(b.getAttribute('aria-label')||'').trim();
+            return t==='Create' || l==='Create';
         });
-        if(b){ b.click(); return 'clicked Image btn at y='+Math.round(b.getBoundingClientRect().y); }
-        return 'Image btn not found';
+        if(b){ b.click(); return 'clicked Create at y='+Math.round(b.getBoundingClientRect().y); }
+        return 'Create not found';
     })()""")
-    print(f"[click-image-btn] {clicked_image}")
+    print(f"[click-create] {clicked_create}")
     time.sleep(2)
+    page_dump(page, "after-create")
 
-    # Dump what appeared after clicking Image
-    page_dump(page, "after-image-click")
-
-    # Step 1c: Now look for Quiz option in the picker that opened
+    # Step 1b: Look for Quiz option in the dropdown/modal
     clicked_quiz = page.evaluate("""(function(){
         function dQ(root, sel){
             var r=Array.from(root.querySelectorAll(sel));
@@ -552,40 +542,45 @@ def post_quiz(page, question):
             });
             return r;
         }
-        function dText(root,pat){
-            var found=[];
-            Array.from(root.querySelectorAll('*')).forEach(function(el){
-                var t=Array.from(el.childNodes).filter(function(n){return n.nodeType===3;}).map(function(n){return n.textContent;}).join('');
-                if(pat.test(t.trim())) found.push(el);
-                if(el.shadowRoot) found=found.concat(dText(el.shadowRoot,pat));
-            });
-            return found;
-        }
-        // All visible interactive elements to find new ones after Image click
-        var allBtns = Array.from(document.querySelectorAll('button,[role="menuitem"],[role="option"],[role="tab"]'));
-        var visible = allBtns.filter(function(el){var r=el.getBoundingClientRect();return r.width>0&&r.height>0;});
-        var labels = visible.map(function(el){return (el.textContent||'').trim().substring(0,25)+'|'+(el.getAttribute('aria-label')||'');});
-        // Try to click Quiz in picker
-        var quizBtn = visible.find(function(el){
+        var allEls = Array.from(document.querySelectorAll('*'));
+        var visible = allEls.filter(function(el){var r=el.getBoundingClientRect();return r.width>0&&r.height>0;});
+        // All visible elements that mention quiz/post
+        var interesting = visible.filter(function(el){
             var t=(el.textContent||'').trim().toLowerCase();
             var l=(el.getAttribute('aria-label')||'').toLowerCase();
-            return t==='quiz' || l==='quiz' || l.includes('quiz') || t.includes('quiz');
-        });
-        if(quizBtn){
-            quizBtn.click();
-            return 'clicked quiz picker: '+quizBtn.tagName+'['+quizBtn.getAttribute('aria-label')+']';
-        }
-        // Also try deep shadow search for quiz-like elements
-        var deep = dText(document, /quiz/i);
-        var deepFiltered = deep.filter(function(el){var r=el.getBoundingClientRect();return r.width>0&&r.height>0&&el.tagName!=='YTD-BACKSTAGE-QUIZ-RENDERER';});
-        if(deepFiltered[0]){
-            deepFiltered[0].click();
-            return 'deep-text-quiz: '+deepFiltered[0].tagName+'['+deepFiltered[0].getAttribute('aria-label')+']';
-        }
-        return 'quiz-not-in-picker|btns='+JSON.stringify(labels.slice(0,30));
+            return t==='quiz'||l==='quiz'||t==='create post'||l==='create post'||t==='quiz post'||l==='quiz post';
+        }).map(function(el){return el.tagName+'['+el.textContent.trim().substring(0,20)+'][label='+(el.getAttribute('aria-label')||'')+'][y='+Math.round(el.getBoundingClientRect().y)+']';});
+        // Dump all visible buttons after Create click
+        var allBtns = Array.from(document.querySelectorAll('button,[role="menuitem"],[role="option"],[role="tab"]'));
+        var btnLabels = allBtns.filter(function(el){var r=el.getBoundingClientRect();return r.width>0&&r.height>0;}).map(function(el){return (el.textContent||'').trim().substring(0,25)+'|'+(el.getAttribute('aria-label')||'');}).filter(function(s){return s.length>1;});
+        return 'interesting='+JSON.stringify(interesting.slice(0,10))+' btns='+JSON.stringify(btnLabels.slice(0,30));
     })()""")
-    print(f"[click-quiz-tab] {clicked_quiz}")
-    time.sleep(2)
+    print(f"[after-create-options] {clicked_quiz}")
+
+    # Step 1c: Try clicking Quiz directly if found, otherwise try Create Post
+    result = page.evaluate("""(function(){
+        var allEls = Array.from(document.querySelectorAll('*'));
+        // Try "Quiz" first
+        var quizEl = allEls.find(function(el){
+            var r=el.getBoundingClientRect();
+            if(r.width<=0||r.height<=0) return false;
+            var t=(el.textContent||'').trim().toLowerCase();
+            var l=(el.getAttribute('aria-label')||'').toLowerCase();
+            return t==='quiz'||l==='quiz';
+        });
+        if(quizEl){ quizEl.click(); return 'clicked quiz: '+quizEl.tagName+'['+quizEl.textContent.trim()+']'; }
+        // Try "Create post" to open post composer
+        var postEl = allEls.find(function(el){
+            var r=el.getBoundingClientRect();
+            if(r.width<=0||r.height<=0) return false;
+            var t=(el.textContent||'').trim().toLowerCase();
+            return t==='create post'||t.includes('create post');
+        });
+        if(postEl){ postEl.click(); return 'clicked create-post: '+postEl.tagName; }
+        return 'neither found';
+    })()""")
+    print(f"[click-quiz-tab] {result}")
+    time.sleep(3)
     page_dump(page, "after-quiz-tab")
 
 
