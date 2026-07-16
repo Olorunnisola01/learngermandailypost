@@ -531,6 +531,28 @@ def post_quiz(page, question):
 
     print(f"[expand-composer] {clicked_composer}")
 
+    # Debug: find ALL elements matching "What's on your mind?" text and their ancestor context
+    all_matches = page.evaluate("""(function(){
+        var all = document.querySelectorAll('*');
+        var found = [];
+        for (var i=0;i<all.length;i++){
+            var t = (all[i].textContent||'').trim();
+            if (t === "What's on your mind?" && all[i].children.length === 0) {
+                var el = all[i];
+                var ancestors = [];
+                var cur = el;
+                for (var j=0;j<5 && cur.parentElement;j++){
+                    cur = cur.parentElement;
+                    ancestors.push(cur.tagName + (cur.id ? '#'+cur.id : ''));
+                }
+                var r = el.getBoundingClientRect();
+                found.push({tag: el.tagName, visible: r.width>0 && r.height>0, y: Math.round(r.y), ancestors: ancestors.join(' > ')});
+            }
+        }
+        return found;
+    })()""")
+    print(f"[all-composer-matches] {all_matches}")
+
     time.sleep(2)
 
 
