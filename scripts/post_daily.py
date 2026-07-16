@@ -260,18 +260,33 @@ def post_quiz(page, question):
 
     # Step 1a: Expand the community composer
     page.evaluate("""(function(){
-        var el = document.querySelector('#contenteditable-root');
-        if(el){ el.click(); el.focus(); }
+        var el = document.querySelector('[placeholder="What\'s on your mind?"]') ||
+                 document.querySelector('yt-formatted-string[aria-label*="mind" i]');
+        if(!el){
+            var all = document.querySelectorAll('*');
+            for (var i=0;i<all.length;i++){
+                var t = (all[i].textContent||'').trim();
+                if (t === "What's on your mind?" && all[i].children.length === 0) { el = all[i]; break; }
+            }
+        }
+        if(el){ el.click(); el.focus(); return 'clicked: '+el.tagName; }
+        return 'composer placeholder not found';
     })()""")
     print("[expand-composer] done")
     time.sleep(2)
 
     # Dump the composer's outerHTML (first 3000 chars) for diagnosis
     composer_html = page.evaluate("""(function(){
-        var el = document.querySelector('#contenteditable-root');
+        var el = null;
+        var all = document.querySelectorAll('*');
+        for (var i=0;i<all.length;i++){
+            var t = (all[i].textContent||'').trim();
+            if (t === "What's on your mind?" && all[i].children.length === 0) { el = all[i]; break; }
+        }
+        if(!el) return 'placeholder element not found';
         var container = el;
-        for (var i = 0; i < 6 && container.parentElement; i++) container = container.parentElement;
-        return container ? container.outerHTML.substring(0, 3000) : 'no container';
+        for (var i = 0; i < 8 && container.parentElement; i++) container = container.parentElement;
+        return container ? container.outerHTML.substring(0, 4000) : 'no container';
     })()""")
     print(f"[composer-html] {composer_html}")
 
