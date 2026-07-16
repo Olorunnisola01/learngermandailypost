@@ -1475,6 +1475,33 @@ def main():
 
             check_login(page)
 
+            # Minimal evaluate() sanity tests to isolate what Steel.dev's remote
+            # browser can/cannot execute via CDP
+            try:
+                r1 = page.evaluate("1+1")
+                print(f"[test-1-simple-math] {r1}")
+            except Exception as e:
+                print(f"[test-1-ERROR] {e}")
+            try:
+                r2 = page.evaluate("(function(){ return 2+2; })()")
+                print(f"[test-2-function-braces] {r2}")
+            except Exception as e:
+                print(f"[test-2-ERROR] {e}")
+            try:
+                r3 = page.evaluate("""(function(){
+                    var x = 1;
+                    if (x) { x = 2; }
+                    return x;
+                })()""")
+                print(f"[test-3-multiline-braces] {r3}")
+            except Exception as e:
+                print(f"[test-3-ERROR] {e}")
+            try:
+                r4 = page.evaluate("(function(){ var el = document.querySelector('div'); return !!el; })()")
+                print(f"[test-4-quotes-in-braces] {r4}")
+            except Exception as e:
+                print(f"[test-4-ERROR] {e}")
+
 
 
 
