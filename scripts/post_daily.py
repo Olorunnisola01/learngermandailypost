@@ -512,18 +512,24 @@ def post_quiz(page, question):
 
     # Step 1a: Expand the community composer
 
-    page.evaluate("""(function(){
-        var el = null;
-        var all = document.querySelectorAll('*');
-        for (var i=0;i<all.length;i++){
-            var t = (all[i].textContent||'').trim();
-            if (t === "What's on your mind?" && all[i].children.length === 0) { el = all[i]; break; }
-        }
-        if(el){ el.click(); el.focus(); return 'clicked: '+el.tagName; }
-        return 'composer placeholder not found';
-    })()""")
+    clicked_composer = None
+    for attempt in range(10):
+        clicked_composer = page.evaluate("""(function(){
+            var el = null;
+            var all = document.querySelectorAll('*');
+            for (var i=0;i<all.length;i++){
+                var t = (all[i].textContent||'').trim();
+                if (t === "What's on your mind?" && all[i].children.length === 0) { el = all[i]; break; }
+            }
+            if(el){ el.click(); el.focus(); return 'clicked: '+el.tagName; }
+            return null;
+        })()""")
+        if clicked_composer:
+            break
+        time.sleep(1)
+    print(f"[expand-composer-attempts] {attempt+1 if clicked_composer else 10}")
 
-    print("[expand-composer] done")
+    print(f"[expand-composer] {clicked_composer}")
 
     time.sleep(2)
 
