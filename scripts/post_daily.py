@@ -535,89 +535,31 @@ def post_quiz(page, question):
 
 
 
-    # Step 1a: Expand the community composer
-
-    clicked_composer = None
-    for attempt in range(10):
-        clicked_composer = page.evaluate("""(function(){
-            var el = null;
-            var all = document.querySelectorAll('*');
-            for (var i=0;i<all.length;i++){
-                var t = (all[i].textContent||'').trim();
-                if (t === "What's on your mind?" && all[i].children.length === 0) { el = all[i]; break; }
-            }
-            if(el){ el.click(); el.focus(); return 'clicked: '+el.tagName; }
-            return null;
-        })()""")
-        if clicked_composer:
-            break
-        time.sleep(1)
-    print(f"[expand-composer-attempts] {attempt+1 if clicked_composer else 10}")
-
-    print(f"[expand-composer] {clicked_composer}")
-
-    # Debug: find ALL elements matching "What's on your mind?" text and their ancestor context
-    all_matches = page.evaluate("""(function(){
-        var all = document.querySelectorAll('*');
-        var found = [];
-        for (var i=0;i<all.length;i++){
-            var t = (all[i].textContent||'').trim();
-            if (t === "What's on your mind?" && all[i].children.length === 0) {
-                var el = all[i];
-                var ancestors = [];
-                var cur = el;
-                for (var j=0;j<5 && cur.parentElement;j++){
-                    cur = cur.parentElement;
-                    ancestors.push(cur.tagName + (cur.id ? '#'+cur.id : ''));
-                }
-                var r = el.getBoundingClientRect();
-                found.push({tag: el.tagName, visible: r.width>0 && r.height>0, y: Math.round(r.y), ancestors: ancestors.join(' > ')});
-            }
-        }
-        return found;
-    })()""")
-    print(f"[all-composer-matches] {all_matches}")
-
-    # Debug: inspect #placeholder-area structure to find the real clickable trigger
-    placeholder_info = page.evaluate("""(function(){
-        var pa = document.querySelector('#placeholder-area');
-        if(!pa) return 'no #placeholder-area found';
-        var r = pa.getBoundingClientRect();
-        var clickables = Array.from(pa.querySelectorAll('*')).filter(function(el){
-            var rr = el.getBoundingClientRect();
-            return rr.width > 0 && rr.height > 0;
-        }).map(function(el){
-            var rr = el.getBoundingClientRect();
-            return el.tagName + (el.id?'#'+el.id:'') + ' text=' + (el.textContent||'').trim().substring(0,30) + ' y=' + Math.round(rr.y) + ' w=' + Math.round(rr.width);
-        });
-        return {
-            paVisible: r.width > 0 && r.height > 0,
-            paY: Math.round(r.y),
-            paW: Math.round(r.width),
-            visibleChildren: clickables.slice(0, 15)
-        };
-    })()""")
-    print(f"[placeholder-area-info] {placeholder_info}")
-
-    # Try clicking the #placeholder-area itself (the real trigger for the dialog)
+    # Step 1a: Click the VISIBLE #placeholder-area directly (this is the real trigger —
+    # a separate, hidden copy of the same text lives inside #unopened-dialog and must
+    # NOT be clicked, since clicking that inert copy does nothing)
     clicked_pa = page.evaluate("""(function(){
         var pa = document.querySelector('#placeholder-area');
         if(pa){ pa.click(); return 'clicked #placeholder-area'; }
         return 'not found';
     })()""")
     print(f"[click-placeholder-area] {clicked_pa}")
-    time.sleep(2)
 
-    # Check if dialog is now open
-    dialog_state = page.evaluate("""(function(){
-        var d = document.querySelector('#unopened-dialog') || document.querySelector('ytd-backstage-post-dialog-renderer');
-        if(!d) return 'no dialog element found';
-        var r = d.getBoundingClientRect();
-        return {tag: d.tagName, id: d.id, visible: r.width>0 && r.height>0, y: Math.round(r.y)};
-    })()""")
-    print(f"[dialog-state-after-click] {dialog_state}")
-
-    time.sleep(2)
+    # Poll for the dialog to actually open (become visible) after the click
+    dialog_open = False
+    dialog_state = {}
+    for attempt in range(10):
+        dialog_state = page.evaluate("""(function(){
+            var d = document.querySelector('#unopened-dialog') || document.querySelector('ytd-backstage-post-dialog-renderer');
+            if(!d) return {found:false};
+            var r = d.getBoundingClientRect();
+            return {found:true, tag:d.tagName, id:d.id, w:Math.round(r.width), h:Math.round(r.height)};
+        })()""")
+        if dialog_state.get("found") and dialog_state.get("w", 0) > 0:
+            dialog_open = True
+            break
+        time.sleep(1)
+    print(f"[dialog-open-poll] open={dialog_open} after {attempt+1} attempts, state={dialog_state}")
 
 
 
