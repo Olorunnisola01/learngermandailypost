@@ -494,11 +494,36 @@ def post_quiz(page, question):
 
 
 
-    page.goto(COMMUNITY_URL, wait_until="domcontentloaded", timeout=60000)
+    page.goto(COMMUNITY_URL, wait_until="networkidle", timeout=60000)
 
 
 
-    time.sleep(4)
+    time.sleep(3)
+
+
+
+    pa_visible = False
+
+    pa_state = {}
+
+    for attempt in range(15):
+
+        pa_state = page.evaluate("""(function(){
+            var pa = document.querySelector('#placeholder-area');
+            if(!pa) return {found:false};
+            var r = pa.getBoundingClientRect();
+            return {found:true, w:Math.round(r.width), h:Math.round(r.height)};
+        })()""")
+
+        if pa_state.get("found") and pa_state.get("w", 0) > 0:
+
+            pa_visible = True
+
+            break
+
+        time.sleep(1)
+
+    print(f"[placeholder-area-poll] visible={pa_visible} after {attempt+1} attempts, state={pa_state}")
 
 
 
