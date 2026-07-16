@@ -535,14 +535,16 @@ def post_quiz(page, question):
 
 
 
-    # Step 1a: Click the VISIBLE #placeholder-area directly (this is the real trigger —
-    # a separate, hidden copy of the same text lives inside #unopened-dialog and must
-    # NOT be clicked, since clicking that inert copy does nothing)
-    clicked_pa = page.evaluate("""(function(){
-        var pa = document.querySelector('#placeholder-area');
-        if(pa){ pa.click(); return 'clicked #placeholder-area'; }
-        return 'not found';
-    })()""")
+    # Step 1a: Click the VISIBLE #placeholder-area using Playwright's NATIVE click —
+    # not page.evaluate(el.click()). A JS-synthesized click() sets event.isTrusted=false,
+    # and YouTube's dialog-open handler appears to silently ignore untrusted clicks.
+    # Playwright's locator.click() dispatches a real mouse event through the browser's
+    # input pipeline (trusted), which is what actually opens the dialog.
+    try:
+        page.locator("#placeholder-area").click(timeout=5000)
+        clicked_pa = "playwright-native-click ok"
+    except Exception as e:
+        clicked_pa = f"playwright-native-click failed: {e}"
     print(f"[click-placeholder-area] {clicked_pa}")
 
     # Poll for the dialog to actually open (become visible) after the click
