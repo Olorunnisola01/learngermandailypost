@@ -553,6 +553,45 @@ def post_quiz(page, question):
     })()""")
     print(f"[all-composer-matches] {all_matches}")
 
+    # Debug: inspect #placeholder-area structure to find the real clickable trigger
+    placeholder_info = page.evaluate("""(function(){
+        var pa = document.querySelector('#placeholder-area');
+        if(!pa) return 'no #placeholder-area found';
+        var r = pa.getBoundingClientRect();
+        var clickables = Array.from(pa.querySelectorAll('*')).filter(function(el){
+            var rr = el.getBoundingClientRect();
+            return rr.width > 0 && rr.height > 0;
+        }).map(function(el){
+            var rr = el.getBoundingClientRect();
+            return el.tagName + (el.id?'#'+el.id:'') + ' text=' + (el.textContent||'').trim().substring(0,30) + ' y=' + Math.round(rr.y) + ' w=' + Math.round(rr.width);
+        });
+        return {
+            paVisible: r.width > 0 && r.height > 0,
+            paY: Math.round(r.y),
+            paW: Math.round(r.width),
+            visibleChildren: clickables.slice(0, 15)
+        };
+    })()""")
+    print(f"[placeholder-area-info] {placeholder_info}")
+
+    # Try clicking the #placeholder-area itself (the real trigger for the dialog)
+    clicked_pa = page.evaluate("""(function(){
+        var pa = document.querySelector('#placeholder-area');
+        if(pa){ pa.click(); return 'clicked #placeholder-area'; }
+        return 'not found';
+    })()""")
+    print(f"[click-placeholder-area] {clicked_pa}")
+    time.sleep(2)
+
+    # Check if dialog is now open
+    dialog_state = page.evaluate("""(function(){
+        var d = document.querySelector('#unopened-dialog') || document.querySelector('ytd-backstage-post-dialog-renderer');
+        if(!d) return 'no dialog element found';
+        var r = d.getBoundingClientRect();
+        return {tag: d.tagName, id: d.id, visible: r.width>0 && r.height>0, y: Math.round(r.y)};
+    })()""")
+    print(f"[dialog-state-after-click] {dialog_state}")
+
     time.sleep(2)
 
 
