@@ -128,7 +128,12 @@ def post_quiz(page, question):
     time.sleep(4)
     page_dump(page, "after-goto")
 
-    # Step 1: Click the "Quiz" tab button directly (it's visible in the post-type bar)
+    # Step 1a: Click the composer area to expand tab bar
+    page.evaluate("document.querySelector('#contenteditable-root') && document.querySelector('#contenteditable-root').click()")
+    time.sleep(2)
+
+    # Step 1b: (moved below) Click Quiz tab
+    # Step 1: Click the "Quiz" tab button (now visible after composer expanded)
     clicked_quiz = page.evaluate("""(function() {
         var btns = Array.from(document.querySelectorAll('button'));
         var b = btns.find(function(b) { return (b.textContent||'').trim() === 'Quiz'; });
