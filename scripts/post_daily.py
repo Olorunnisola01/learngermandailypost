@@ -521,7 +521,7 @@ def post_quiz(page, question):
         }
         if(el){ el.click(); el.focus(); return 'clicked: '+el.tagName; }
         return 'composer placeholder not found';
-    })()"""))
+    })()""")
 
     print("[expand-composer] done")
 
