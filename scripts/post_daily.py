@@ -518,25 +518,24 @@ def post_quiz(page, question):
 
 
 
-    # Step 1a: Expand the community composer by clicking its placeholder
+    # Step 1a: Expand the community composer
     page.evaluate("""(function(){
-        var el = document.querySelector('[aria-label="What\'s on your mind?"]') ||
-                 document.querySelector('#contenteditable-root') ||
-                 document.querySelector('[placeholder*="mind" i]');
+        var el = document.querySelector('#contenteditable-root') ||
+                 document.querySelector('[placeholder]');
         if(el){ el.click(); el.focus(); }
     })()""")
     print("[expand-composer] done")
     time.sleep(3)
 
-    # Step 1b: Click Quiz tab — use Playwright locators which pierce shadow DOM
+    # Step 1b: Click Quiz tab using Playwright locators (pierce shadow DOM)
     clicked_quiz = None
-    # Try 1: Playwright text locator (pierces shadow DOM)
+
+    # Try 1: Playwright text locator — pierces shadow DOM
     try:
         quiz_locator = page.get_by_text("Quiz", exact=True)
         count = quiz_locator.count()
         print(f"[quiz-playwright-count] {count}")
         if count > 0:
-            # Pick the one that's visible
             for i in range(count):
                 try:
                     el = quiz_locator.nth(i)
@@ -549,17 +548,17 @@ def post_quiz(page, question):
     except Exception as e:
         print(f"[quiz-playwright-err] {e}")
 
-    # Try 2: Playwright role=tab locator
+    # Try 2: role=tab with name Quiz
     if not clicked_quiz:
         try:
             tab = page.get_by_role("tab", name="Quiz")
-            if tab.count() > 0 and tab.is_visible(timeout=1000):
-                tab.click(timeout=3000)
+            if tab.count() > 0 and tab.first.is_visible(timeout=1000):
+                tab.first.click(timeout=3000)
                 clicked_quiz = "playwright-role-tab"
         except Exception as e:
             print(f"[quiz-role-tab-err] {e}")
 
-    # Try 3: CSS selector piercing shadow DOM via Playwright
+    # Try 3: paper-tab element containing Quiz text
     if not clicked_quiz:
         try:
             el = page.locator("tp-yt-paper-tab:has-text('Quiz')")
@@ -569,7 +568,7 @@ def post_quiz(page, question):
         except Exception as e:
             print(f"[quiz-paper-tab-err] {e}")
 
-    # Try 4: JavaScript deep shadow DOM search as last resort
+    # Try 4: JavaScript deep shadow DOM search
     if not clicked_quiz:
         result = page.evaluate("""(function(){
             function dQ(root, sel){
@@ -588,26 +587,20 @@ def post_quiz(page, question):
                 });
                 return found;
             }
-            // Dump all interactive elements with their text/labels
-            var all = dQ(document,'button,[role="tab"],tp-yt-paper-tab,[role="button"]');
-            var info = all.filter(function(el){
-                var r=el.getBoundingClientRect(); return r.width>0&&r.height>0;
-            }).map(function(el){
-                return (el.textContent||'').trim().substring(0,30)+'|'+(el.getAttribute('aria-label')||'');
-            }).filter(function(s){return s.trim().length>1;});
-            // Try clicking Quiz by text
-            var byText = dText(document,/^quiz$/i);
+            var all=dQ(document,'button,[role="tab"],tp-yt-paper-tab,[role="button"]');
+            var info=all.filter(function(el){var r=el.getBoundingClientRect();return r.width>0&&r.height>0;}).map(function(el){return (el.textContent||'').trim().substring(0,25)+'|'+(el.getAttribute('aria-label')||'');}).filter(function(s){return s.trim().length>1;});
+            var byText=dText(document,/^quiz$/i);
             if(byText.length>0){
                 var t=byText[0].closest('[role="tab"],button,[tabindex]')||byText[0];
                 t.click();
-                return 'deep-text clicked: '+t.tagName;
+                return 'deep-text:'+t.tagName;
             }
-            var byLabel = dQ(document,'[aria-label*="quiz" i]');
-            if(byLabel.length>0){ byLabel[0].click(); return 'deep-label: '+byLabel[0].getAttribute('aria-label'); }
-            return 'not found. interactive='+JSON.stringify(info.slice(0,20));
+            var byLabel=dQ(document,'[aria-label*="quiz" i]');
+            if(byLabel.length>0){byLabel[0].click();return 'deep-label:'+byLabel[0].getAttribute('aria-label');}
+            return 'not-found|interactive='+JSON.stringify(info.slice(0,25));
         })()""")
         print(f"[quiz-js-deep] {result}")
-        if "clicked" in str(result) or "label" in str(result):
+        if "deep-text" in str(result) or "deep-label" in str(result):
             clicked_quiz = f"js-deep: {result}"
 
     print(f"[click-quiz-tab] {clicked_quiz}")
