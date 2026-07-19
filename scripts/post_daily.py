@@ -942,7 +942,7 @@ def create_steel_session():
 
 
 
-            body = json.dumps({"sessionContext": SESSION_CONTEXT, "useProxy": False})
+            body = json.dumps({"sessionContext": SESSION_CONTEXT, "useProxy": True})
 
 
 
@@ -5912,6 +5912,8 @@ def main():
 
             page.on("console", lambda msg: print(f"[BROWSER-CONSOLE-{msg.type}] {msg.text}"[:500]))
             page.on("pageerror", lambda exc: print(f"[BROWSER-PAGEERROR] {exc}"[:500]))
+            page.on("requestfailed", lambda req: print(f"[REQUEST-FAILED] {req.url[:150]} :: {req.failure}"))
+            page.on("response", lambda res: print(f"[RESPONSE-4XX5XX] {res.status} {res.url[:150]}") if res.status >= 400 else None)
 
             ua = page.evaluate("navigator.userAgent")
             print(f"[user-agent] {ua}")
