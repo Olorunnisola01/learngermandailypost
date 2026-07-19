@@ -1,9 +1,16 @@
 name: Post German Quiz
 
 on:
-  schedule:
-    - cron: '13 * * * *'   # every hour at :13 (avoids top-of-hour congestion that delays/drops runs)
-  workflow_dispatch:        # allow manual trigger
+  # Hourly schedule DISABLED: YouTube's Quiz composer does not reliably open
+  # under Steel.dev's non-proxied (datacenter IP) browser sessions — Google
+  # appears to serve a reduced-functionality experience to that IP class, and
+  # the Steel.dev proxy tier that would fix this is not available on the
+  # current plan (confirmed via a 403 from the Steel.dev API when requesting
+  # useProxy=true). Re-enable the schedule block below only after upgrading
+  # to a Steel.dev plan with proxy access.
+  # schedule:
+  #   - cron: '13 * * * *'
+  workflow_dispatch:        # manual trigger only, for testing
 
 permissions:
   contents: write
